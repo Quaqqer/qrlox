@@ -46,7 +46,7 @@ pub enum Token<'a> {
     Identifier(&'a str),
     #[regex(r#""((\\")|[^"])*""#)]
     String(&'a str),
-    #[regex(r#"[+-]?(\d+(\.\d*)?|\.\d+)"#)]
+    #[regex(r#"(\d+(\.\d*)?|\.\d+)"#)]
     Number(&'a str),
     #[token("and")]
     And,

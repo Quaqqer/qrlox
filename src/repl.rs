@@ -1,8 +1,10 @@
 use crate::{
     ast::{self, Span},
+    interpreter::{self, eval_expr, Ctx},
     lex::Token,
     parse::{create_report, expr_parser},
 };
+use ariadne::{Report, ReportBuilder};
 use chumsky::{prelude::end, Parser};
 use logos::Logos;
 
@@ -17,6 +19,8 @@ pub fn repl() {
 
     // Attempt to load history
     let _ = rl.load_history(&hist_file);
+
+    let mut ctx = Ctx::new();
 
     loop {
         let readline = rl.readline("> ");
@@ -35,6 +39,14 @@ pub fn repl() {
 
                 match (ast, &errors[..]) {
                     (Some(ast), []) => {
+                        match eval_expr(&mut ctx, &ast) {
+                            Ok(value) => println!("{:?}", value),
+                            Err(err) => {
+                                create_error_report(&err)
+                                    .eprint(ariadne::Source::from(&line))
+                                    .unwrap();
+                            }
+                        };
                         println!("Parsed: {:?}", ast)
                     }
                     (_, errors) => {
@@ -58,4 +70,14 @@ pub fn repl() {
 
     std::fs::create_dir_all(&hist_dir).expect("Failed to create directory for history");
     rl.save_history(&hist_file).expect("Failed to save history");
+}
+
+pub fn create_error_report(err: &interpreter::Error) -> ariadne::Report {
+    ariadne::Report::build(ariadne::ReportKind::Error, err.span.range.clone())
+        .with_label(
+            ariadne::Label::new(err.span.range.clone())
+                .with_message(err.message.clone())
+                .with_color(ariadne::Color::Red),
+        )
+        .finish()
 }

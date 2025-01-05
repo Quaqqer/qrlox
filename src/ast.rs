@@ -45,7 +45,7 @@ impl std::fmt::Display for Span {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spanned<T> {
     pub v: T,
     pub s: Span,
@@ -67,6 +67,23 @@ pub enum Binop {
     Sub,
     Mul,
     Div,
+}
+
+impl Binop {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Binop::Eq => "'=='",
+            Binop::Ne => "'!='",
+            Binop::Lt => "'<'",
+            Binop::Le => "'<='",
+            Binop::Gt => "'>'",
+            Binop::Ge => "'>='",
+            Binop::Add => "'+'",
+            Binop::Sub => "'-'",
+            Binop::Mul => "'*'",
+            Binop::Div => "'/'",
+        }
+    }
 }
 
 #[derive(Debug)]
