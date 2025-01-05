@@ -1,9 +1,8 @@
 use crate::{
     ast::{self, Span},
     lex::Token,
-    parse::expr_parser,
+    parse::{create_report, expr_parser},
 };
-use ariadne::{Color, Label, Report, ReportKind, Source};
 use chumsky::{prelude::end, Parser};
 use logos::Logos;
 
@@ -39,17 +38,8 @@ pub fn repl() {
                         println!("Parsed: {:?}", ast)
                     }
                     (_, errors) => {
-                        for err in errors {
-                            Report::build(ReportKind::Error, err.span().range)
-                                .with_message(err.to_string())
-                                .with_label(
-                                    Label::new(err.span().range)
-                                        .with_message(err.reason().to_string())
-                                        .with_color(Color::Red),
-                                )
-                                .finish()
-                                .eprint(Source::from(&line))
-                                .unwrap();
+                        for err in errors.iter().map(|e| create_report(e)) {
+                            err.eprint(ariadne::Source::from(&line)).unwrap()
                         }
                     }
                 }
