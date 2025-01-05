@@ -4,7 +4,6 @@ use crate::{
     lex::Token,
     parse::{create_report, expr_parser},
 };
-use ariadne::{Report, ReportBuilder};
 use chumsky::{prelude::end, Parser};
 use logos::Logos;
 
@@ -26,10 +25,12 @@ pub fn repl() {
         let readline = rl.readline("> ");
         match readline {
             Ok(line) => {
+                // Add line to history
                 if let Err(e) = rl.add_history_entry(line.as_str()) {
                     eprintln!("Failed to add line to history: {}", e);
                 };
 
+                // Parse
                 let stream = Token::lexer(&line).spanned().map(|(tok, range)| match tok {
                     Ok(tok) => (tok, ast::Span::new(range)),
                     Err(()) => (Token::Error, ast::Span::new(range)),
@@ -37,22 +38,24 @@ pub fn repl() {
                 let stream = chumsky::Stream::from_iter(Span::new(1..0), stream);
                 let (ast, errors) = expr_parser().then_ignore(end()).parse_recovery(stream);
 
-                match (ast, &errors[..]) {
-                    (Some(ast), []) => {
-                        match eval_expr(&mut ctx, &ast) {
-                            Ok(value) => println!("{:?}", value),
-                            Err(err) => {
-                                create_error_report(&err)
-                                    .eprint(ariadne::Source::from(&line))
-                                    .unwrap();
-                            }
-                        };
-                        println!("Parsed: {:?}", ast)
-                    }
+                // Check if parsing was correct
+                let ast = match (ast, &errors[..]) {
+                    (Some(ast), []) => ast,
                     (_, errors) => {
                         for err in errors.iter().map(|e| create_report(e)) {
                             err.eprint(ariadne::Source::from(&line)).unwrap()
                         }
+                        continue;
+                    }
+                };
+
+                // Evaluate parsed expression
+                match eval_expr(&mut ctx, &ast) {
+                    Ok(value) => println!("{}", value.repr()),
+                    Err(err) => {
+                        create_error_report(&err)
+                            .eprint(ariadne::Source::from(&line))
+                            .unwrap();
                     }
                 }
             }

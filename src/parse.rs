@@ -37,7 +37,7 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
                 .map_with_span(|e, s| spanned(Expr::Not(Box::new(e)), s));
             let neg = just(Token::Minus)
                 .ignore_then(unary.clone())
-                .map_with_span(|e, s| spanned(Expr::Not(Box::new(e)), s));
+                .map_with_span(|e, s| spanned(Expr::Neg(Box::new(e)), s));
             not.or(neg).or(primary.clone())
         });
 

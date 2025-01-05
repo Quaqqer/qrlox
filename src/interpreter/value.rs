@@ -15,6 +15,18 @@ impl Value {
             Value::String(_) => ValueType::String,
         }
     }
+
+    pub fn repr(&self) -> String {
+        match self {
+            Value::Nil => "nil".to_string(),
+            Value::Boolean(b) => match b {
+                true => "true".to_string(),
+                false => "false".to_string(),
+            },
+            Value::Number(n) => n.to_string(),
+            Value::String(s) => "\"".to_string() + s + "\"",
+        }
+    }
 }
 
 impl TryFrom<&Value> for bool {
