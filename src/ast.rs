@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 #[derive(Debug, Clone)]
 pub struct Span {
     pub range: std::ops::Range<usize>,
@@ -6,6 +8,14 @@ pub struct Span {
 impl Span {
     pub fn new(range: std::ops::Range<usize>) -> Self {
         Self { range }
+    }
+
+    pub fn join(&self, other: impl Borrow<Span>) -> Self {
+        let other = other.borrow();
+
+        Self {
+            range: self.range.start.min(other.range.start)..self.range.end.max(other.range.end),
+        }
     }
 }
 
@@ -37,15 +47,15 @@ impl std::fmt::Display for Span {
 
 #[derive(Debug)]
 pub struct Spanned<T> {
-    v: T,
-    span: Span,
+    pub v: T,
+    pub s: Span,
 }
 
 pub fn spanned<T>(v: T, span: Span) -> Spanned<T> {
-    Spanned { v, span }
+    Spanned { v, s: span }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Binop {
     Eq,
     Ne,
