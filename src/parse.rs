@@ -1,9 +1,14 @@
 use chumsky::prelude::*;
 use chumsky::{error::Simple, Parser};
 
-use crate::ast::{self, spanned, Binop};
+use crate::ast::{self, spanned, Binop, Stmt};
 use crate::ast::{Expr, Spanned};
 use crate::lex::Token;
+
+pub enum StmtOrExpr<'a> {
+    Stmt(Spanned<Stmt<'a>>),
+    Expr(Spanned<Expr<'a>>),
+}
 
 type Error<'a> = Simple<Token<'a>, ast::Span>;
 
@@ -101,4 +106,23 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
 
         equality
     })
+}
+
+pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
+    let print = just(Token::Print)
+        .ignore_then(expr_parser())
+        .then_ignore(just(Token::Semicolon))
+        .map_with_span(|expr, span| spanned(Stmt::Print(expr), span));
+
+    let expr = expr_parser()
+        .then_ignore(just(Token::Semicolon))
+        .map_with_span(|expr, span| spanned(Stmt::Expr(expr), span));
+
+    print.or(expr)
+}
+
+pub fn expr_or_stmt_parser<'a>() -> impl Parser<Token<'a>, StmtOrExpr<'a>, Error = Error<'a>> {
+    expr_parser()
+        .map(StmtOrExpr::Expr)
+        .or(stmt_parser().map(StmtOrExpr::Stmt))
 }

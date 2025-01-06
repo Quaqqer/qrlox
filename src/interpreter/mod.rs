@@ -2,7 +2,7 @@ mod value;
 
 use value::Value;
 
-use crate::ast::{Binop, Expr, Span, Spanned};
+use crate::ast::{Binop, Expr, Span, Spanned, Stmt};
 
 macro_rules! bail {
     ($span:expr,  $($args:tt)*) => {
@@ -112,4 +112,17 @@ fn eval_binop<'a>(
             rhs.type_().name()
         ),
     }
+}
+
+pub fn exec_stmt(ctx: &mut Ctx, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
+    match &stmt.v {
+        Stmt::Expr(expr) => {
+            let _ = eval_expr(ctx, expr)?;
+        }
+        Stmt::Print(expr) => {
+            let v = eval_expr(ctx, expr)?;
+            println!("{}", v.repr());
+        }
+    };
+    Ok(())
 }

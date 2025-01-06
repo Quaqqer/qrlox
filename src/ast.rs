@@ -96,3 +96,9 @@ pub enum Expr<'a> {
     Neg(Box<Spanned<Expr<'a>>>),
     Binary(Box<Spanned<Expr<'a>>>, Binop, Box<Spanned<Expr<'a>>>),
 }
+
+#[derive(Debug)]
+pub enum Stmt<'a> {
+    Expr(Spanned<Expr<'a>>),
+    Print(Spanned<Expr<'a>>),
+}

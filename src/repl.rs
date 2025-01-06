@@ -1,8 +1,8 @@
 use crate::{
     ast::{self, Span},
-    interpreter::{self, eval_expr, Ctx},
+    interpreter::{self, eval_expr, exec_stmt, Ctx},
     lex::Token,
-    parse::{create_report, expr_parser},
+    parse::{create_report, expr_or_stmt_parser, expr_parser},
 };
 use chumsky::{prelude::end, Parser};
 use logos::Logos;
@@ -35,8 +35,11 @@ pub fn repl() {
                     Ok(tok) => (tok, ast::Span::new(range)),
                     Err(()) => (Token::Error, ast::Span::new(range)),
                 });
-                let stream = chumsky::Stream::from_iter(Span::new(1..0), stream);
-                let (ast, errors) = expr_parser().then_ignore(end()).parse_recovery(stream);
+                let n_chars = line.chars().count();
+                let stream = chumsky::Stream::from_iter(Span::new(n_chars..n_chars), stream);
+                let (ast, errors) = expr_or_stmt_parser()
+                    .then_ignore(end())
+                    .parse_recovery(stream);
 
                 // Check if parsing was correct
                 let ast = match (ast, &errors[..]) {
@@ -49,14 +52,20 @@ pub fn repl() {
                     }
                 };
 
-                // Evaluate parsed expression
-                match eval_expr(&mut ctx, &ast) {
-                    Ok(value) => println!("{}", value.repr()),
-                    Err(err) => {
-                        create_error_report(&err)
+                // Evaluate parsed ast
+                match ast {
+                    crate::parse::StmtOrExpr::Stmt(stmt) => match exec_stmt(&mut ctx, &stmt) {
+                        Ok(()) => {}
+                        Err(err) => create_error_report(&err)
                             .eprint(ariadne::Source::from(&line))
-                            .unwrap();
-                    }
+                            .unwrap(),
+                    },
+                    crate::parse::StmtOrExpr::Expr(expr) => match eval_expr(&mut ctx, &expr) {
+                        Ok(value) => println!("{}", value.repr()),
+                        Err(err) => create_error_report(&err)
+                            .eprint(ariadne::Source::from(&line))
+                            .unwrap(),
+                    },
                 }
             }
             Err(
