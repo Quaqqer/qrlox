@@ -79,13 +79,7 @@ pub fn eval_expr(ctx: &mut Ctx, expr: &Spanned<Expr<'_>>) -> Result<Value, Error
         Expr::Nil => Value::Nil,
         Expr::Not(e) => {
             let res = eval_expr(ctx, e)?;
-            Value::Boolean(bool::try_from(&res).or_else(|_| {
-                bail!(
-                    e.s,
-                    "Could not cast value of type {} to boolean",
-                    res.type_().name()
-                )
-            })?)
+            Value::Boolean(!res.is_truthy())
         }
         Expr::Neg(e) => {
             let res = eval_expr(ctx, e)?;
@@ -185,6 +179,26 @@ pub fn exec_stmt(ctx: &mut Ctx, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
 
                 Ok(())
             })?;
+        }
+        Stmt::If { cond, then, else_ } => {
+            let cond = eval_expr(ctx, cond)?;
+
+            if cond.is_truthy() {
+                println!("truthy");
+                ctx.scoped(|ctx| -> Result<_, Error> {
+                    for stmt in then.iter() {
+                        exec_stmt(ctx, stmt)?;
+                    }
+                    Ok(())
+                })?;
+            } else if let Some(else_) = else_ {
+                ctx.scoped(|ctx| -> Result<_, Error> {
+                    for stmt in else_.iter() {
+                        exec_stmt(ctx, stmt)?;
+                    }
+                    Ok(())
+                })?;
+            }
         }
     };
     Ok(())

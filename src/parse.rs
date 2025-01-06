@@ -128,6 +128,7 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
         let block = just(Token::LBrace)
             .ignore_then(
                 stmt_parser
+                    .clone()
                     .repeated()
                     .map_with_span(|stmts, s| spanned(Stmt::Block(stmts), s)),
             )
@@ -137,7 +138,23 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
             .then_ignore(just(Token::Semicolon))
             .map_with_span(|expr, span| spanned(Stmt::Expr(expr), span));
 
-        print.or(var_decl).or(block).or(expr)
+        let if_ = just(Token::If)
+            .then(just(Token::LParen))
+            .ignore_then(expr_parser())
+            .then_ignore(just(Token::RParen))
+            .then_ignore(just(Token::LBrace))
+            .then(stmt_parser.clone().repeated())
+            .then_ignore(just(Token::RBrace))
+            .then(
+                just(Token::Else)
+                    .then(just(Token::LBrace))
+                    .ignore_then(stmt_parser.clone().repeated())
+                    .then_ignore(just(Token::RBrace))
+                    .or_not(),
+            )
+            .map_with_span(|((cond, then), else_), s| spanned(Stmt::If { cond, then, else_ }, s));
+
+        print.or(var_decl).or(block).or(if_).or(expr)
     })
 }
 

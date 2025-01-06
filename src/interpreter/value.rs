@@ -27,6 +27,10 @@ impl Value {
             Value::String(s) => "\"".to_string() + s + "\"",
         }
     }
+
+    pub fn is_truthy(&self) -> bool {
+        !matches!(self, Value::Nil | Value::Boolean(false))
+    }
 }
 
 impl TryFrom<&Value> for bool {

@@ -104,4 +104,9 @@ pub enum Stmt<'a> {
     Print(Spanned<Expr<'a>>),
     VarDecl(&'a str, Spanned<Expr<'a>>),
     Block(Vec<Spanned<Stmt<'a>>>),
+    If {
+        cond: Spanned<Expr<'a>>,
+        then: Vec<Spanned<Stmt<'a>>>,
+        else_: Option<Vec<Spanned<Stmt<'a>>>>,
+    },
 }
