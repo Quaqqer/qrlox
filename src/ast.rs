@@ -106,7 +106,7 @@ pub enum Stmt<'a> {
     Block(Vec<Spanned<Stmt<'a>>>),
     If {
         cond: Spanned<Expr<'a>>,
-        then: Vec<Spanned<Stmt<'a>>>,
-        else_: Option<Vec<Spanned<Stmt<'a>>>>,
+        then: Box<Spanned<Stmt<'a>>>,
+        else_: Option<Box<Spanned<Stmt<'a>>>>,
     },
 }

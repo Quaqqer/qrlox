@@ -184,20 +184,9 @@ pub fn exec_stmt(ctx: &mut Ctx, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
             let cond = eval_expr(ctx, cond)?;
 
             if cond.is_truthy() {
-                println!("truthy");
-                ctx.scoped(|ctx| -> Result<_, Error> {
-                    for stmt in then.iter() {
-                        exec_stmt(ctx, stmt)?;
-                    }
-                    Ok(())
-                })?;
+                ctx.scoped(|ctx| -> Result<_, Error> { exec_stmt(ctx, then) })?;
             } else if let Some(else_) = else_ {
-                ctx.scoped(|ctx| -> Result<_, Error> {
-                    for stmt in else_.iter() {
-                        exec_stmt(ctx, stmt)?;
-                    }
-                    Ok(())
-                })?;
+                ctx.scoped(|ctx| -> Result<_, Error> { exec_stmt(ctx, else_) })?;
             }
         }
     };

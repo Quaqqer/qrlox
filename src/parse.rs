@@ -142,17 +142,18 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
             .then(just(Token::LParen))
             .ignore_then(expr_parser())
             .then_ignore(just(Token::RParen))
-            .then_ignore(just(Token::LBrace))
-            .then(stmt_parser.clone().repeated())
-            .then_ignore(just(Token::RBrace))
-            .then(
-                just(Token::Else)
-                    .then(just(Token::LBrace))
-                    .ignore_then(stmt_parser.clone().repeated())
-                    .then_ignore(just(Token::RBrace))
-                    .or_not(),
-            )
-            .map_with_span(|((cond, then), else_), s| spanned(Stmt::If { cond, then, else_ }, s));
+            .then(stmt_parser.clone())
+            .then(just(Token::Else).ignore_then(stmt_parser.clone()).or_not())
+            .map_with_span(|((cond, then), else_), s| {
+                spanned(
+                    Stmt::If {
+                        cond,
+                        then: Box::new(then),
+                        else_: else_.map(Box::new),
+                    },
+                    s,
+                )
+            });
 
         print.or(var_decl).or(block).or(if_).or(expr)
     })
