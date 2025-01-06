@@ -2,7 +2,8 @@ use crate::{
     ast::{self, Span},
     interpreter::{self, eval_expr, exec_stmt, Ctx},
     lex::Token,
-    parse::{create_report, expr_or_stmt_parser, expr_parser},
+    parse::{create_report, expr_or_stmt_parser},
+    ARIADNE_CONFIG,
 };
 use chumsky::{prelude::end, Parser};
 use logos::Logos;
@@ -86,6 +87,7 @@ pub fn repl() {
 
 pub fn create_error_report(err: &interpreter::Error) -> ariadne::Report {
     ariadne::Report::build(ariadne::ReportKind::Error, err.span.range.clone())
+        .with_config(ARIADNE_CONFIG)
         .with_label(
             ariadne::Label::new(err.span.range.clone())
                 .with_message(err.message.clone())

@@ -4,6 +4,7 @@ use chumsky::{error::Simple, Parser};
 use crate::ast::{self, spanned, Binop, Stmt};
 use crate::ast::{Expr, Spanned};
 use crate::lex::Token;
+use crate::ARIADNE_CONFIG;
 
 pub enum StmtOrExpr<'a> {
     Stmt(Spanned<Stmt<'a>>),
@@ -14,6 +15,7 @@ type Error<'a> = Simple<Token<'a>, ast::Span>;
 
 pub fn create_report<'a>(err: &'a Simple<Token<'_>, ast::Span>) -> ariadne::Report<'a> {
     ariadne::Report::build(ariadne::ReportKind::Error, err.span().range)
+        .with_config(ARIADNE_CONFIG)
         .with_message(err.to_string())
         .with_label(
             ariadne::Label::new(err.span().range)
