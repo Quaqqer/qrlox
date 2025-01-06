@@ -30,6 +30,7 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
         let primary = select! { |span|
             Token::Number(s) => spanned(Expr::Number(s.parse().unwrap()), span),
             Token::String(s) => spanned(Expr::String(s), span),
+            Token::Identifier(i) => spanned(Expr::Var(i), span),
             Token::True => spanned(Expr::Boolean(true), span),
             Token::False => spanned(Expr::Boolean(false), span),
             Token::Nil => spanned(Expr::Nil, span),
@@ -116,11 +117,18 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
         .then_ignore(just(Token::Semicolon))
         .map_with_span(|expr, span| spanned(Stmt::Print(expr), span));
 
+    let var_decl = just(Token::Var)
+        .ignore_then(select! {Token::Identifier(ident) => ident})
+        .then_ignore(just(Token::Eq))
+        .then(expr_parser())
+        .then_ignore(just(Token::Semicolon))
+        .map_with_span(|(var, expr), s| spanned(Stmt::VarDecl(var, expr), s));
+
     let expr = expr_parser()
         .then_ignore(just(Token::Semicolon))
         .map_with_span(|expr, span| spanned(Stmt::Expr(expr), span));
 
-    print.or(expr)
+    print.or(var_decl).or(expr)
 }
 
 pub fn expr_or_stmt_parser<'a>() -> impl Parser<Token<'a>, StmtOrExpr<'a>, Error = Error<'a>> {

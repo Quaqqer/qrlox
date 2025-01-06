@@ -95,10 +95,12 @@ pub enum Expr<'a> {
     Not(Box<Spanned<Expr<'a>>>),
     Neg(Box<Spanned<Expr<'a>>>),
     Binary(Box<Spanned<Expr<'a>>>, Binop, Box<Spanned<Expr<'a>>>),
+    Var(&'a str),
 }
 
 #[derive(Debug)]
 pub enum Stmt<'a> {
     Expr(Spanned<Expr<'a>>),
     Print(Spanned<Expr<'a>>),
+    VarDecl(&'a str, Spanned<Expr<'a>>),
 }

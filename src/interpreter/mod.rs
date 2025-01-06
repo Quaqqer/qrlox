@@ -1,5 +1,7 @@
 mod value;
 
+use std::collections::HashMap;
+
 use value::Value;
 
 use crate::ast::{Binop, Expr, Span, Spanned, Stmt};
@@ -17,15 +19,29 @@ pub struct Error {
     pub span: Span,
 }
 
-pub struct Ctx {}
+pub struct Ctx {
+    globals: HashMap<String, Value>,
+}
 
 impl Ctx {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            globals: HashMap::new(),
+        }
+    }
+
+    fn declare(&mut self, var: String, value: Value) {
+        self.globals.insert(var, value);
+    }
+
+    fn lookup(&mut self, var: &str) -> Option<Value> {
+        self.globals.get(var).cloned()
     }
 }
 
 pub fn eval_expr<'a>(ctx: &mut Ctx, expr: &Spanned<Expr<'a>>) -> Result<Value, Error> {
+    let s = expr.s.clone();
+
     Ok(match &expr.v {
         Expr::Number(n) => Value::Number(*n),
         Expr::String(s) => Value::String(s.to_string()),
@@ -52,6 +68,10 @@ pub fn eval_expr<'a>(ctx: &mut Ctx, expr: &Spanned<Expr<'a>>) -> Result<Value, E
             })?)
         }
         Expr::Binary(lhs, op, rhs) => eval_binop(ctx, expr.s.clone(), lhs, op, rhs)?,
+        Expr::Var(var) => ctx
+            .lookup(var)
+            .ok_or(())
+            .or_else(|_| bail!(s, "No variable '{}' has been declared", var))?,
     })
 }
 
@@ -122,6 +142,10 @@ pub fn exec_stmt(ctx: &mut Ctx, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
         Stmt::Print(expr) => {
             let v = eval_expr(ctx, expr)?;
             println!("{}", v.repr());
+        }
+        Stmt::VarDecl(var, expr) => {
+            let v = eval_expr(ctx, expr)?;
+            ctx.declare(var.to_string(), v);
         }
     };
     Ok(())
