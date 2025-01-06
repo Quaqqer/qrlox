@@ -44,7 +44,7 @@ pub enum Token<'a> {
     Le,
     #[regex(r#"[A-Za-z_][A-Za-z_0-9]*"#)]
     Identifier(&'a str),
-    #[regex(r#""((\\")|[^"])*""#)]
+    #[regex(r#""((\\")|[^"])*""#, |s| &s.slice()[1..s.slice().len()-1])]
     String(&'a str),
     #[regex(r#"(\d+(\.\d*)?|\.\d+)"#)]
     Number(&'a str),

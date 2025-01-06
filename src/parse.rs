@@ -107,7 +107,34 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
                 spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
             });
 
-        equality
+        let and = comparison
+            .clone()
+            .then(
+                just(Token::And)
+                    .to(Binop::And)
+                    .then(comparison.clone())
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| {
+                let s = lhs.s.join(&rhs.s);
+                spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
+            });
+
+        let or = and
+            .clone()
+            .then(just(Token::Or).to(Binop::Or).then(and.clone()).repeated())
+            .foldl(|lhs, (op, rhs)| {
+                let s = lhs.s.join(&rhs.s);
+                spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
+            });
+
+        let assignment = select!(Token::Identifier(i) => i)
+            .then_ignore(just(Token::Eq))
+            .then(or.clone())
+            .map_with_span(|(var, expr), span| spanned(Expr::Assign(var, Box::new(expr)), span))
+            .or(or);
+
+        assignment
     })
 }
 

@@ -53,6 +53,19 @@ impl Ctx {
         None
     }
 
+    fn assign(&mut self, var: &str, value: Value) -> bool {
+        let Self { globals, scopes } = self;
+
+        for scope in std::iter::once(globals).chain(scopes).rev() {
+            if let Some(ref_) = scope.get_mut(var) {
+                *ref_ = value;
+                return true;
+            }
+        }
+
+        false
+    }
+
     fn enter_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
@@ -96,6 +109,18 @@ pub fn eval_expr(ctx: &mut Ctx, expr: &Spanned<Expr<'_>>) -> Result<Value, Error
             .lookup(var)
             .ok_or(())
             .or_else(|_| bail!(s, "No variable '{}' has been declared", var))?,
+        Expr::Assign(var, expr) => {
+            let res = eval_expr(ctx, expr)?;
+            let assigned = ctx.assign(var, res.clone());
+            if !assigned {
+                bail!(
+                    s,
+                    "Could not assigned to '{}', it has not been declared.",
+                    var
+                );
+            }
+            res
+        }
     })
 }
 
@@ -107,6 +132,23 @@ fn eval_binop<'a>(
     rhs: &Spanned<Expr<'a>>,
 ) -> Result<Value, Error> {
     let lhs = eval_expr(ctx, lhs)?;
+
+    match op {
+        Binop::And => {
+            if lhs.is_truthy() {
+                return eval_expr(ctx, rhs);
+            }
+        }
+        Binop::Or => {
+            if lhs.is_truthy() {
+                return Ok(lhs);
+            } else {
+                return eval_expr(ctx, rhs);
+            }
+        }
+        _ => {}
+    }
+
     let rhs = eval_expr(ctx, rhs)?;
 
     let res = match op {
@@ -144,6 +186,7 @@ fn eval_binop<'a>(
             (Value::Number(lhs), Value::Number(rhs)) => Some(Value::Number(lhs / rhs)),
             _ => None,
         },
+        Binop::And | Binop::Or => unreachable!("'and' and 'or' should be handled already"),
     };
 
     match res {

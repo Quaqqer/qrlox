@@ -67,6 +67,8 @@ pub enum Binop {
     Sub,
     Mul,
     Div,
+    And,
+    Or,
 }
 
 impl Binop {
@@ -82,6 +84,8 @@ impl Binop {
             Binop::Sub => "'-'",
             Binop::Mul => "'*'",
             Binop::Div => "'/'",
+            Binop::And => "'and'",
+            Binop::Or => "'or'",
         }
     }
 }
@@ -95,6 +99,7 @@ pub enum Expr<'a> {
     Not(Box<Spanned<Expr<'a>>>),
     Neg(Box<Spanned<Expr<'a>>>),
     Binary(Box<Spanned<Expr<'a>>>, Binop, Box<Spanned<Expr<'a>>>),
+    Assign(&'a str, Box<Spanned<Expr<'a>>>),
     Var(&'a str),
 }
 
