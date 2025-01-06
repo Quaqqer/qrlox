@@ -107,12 +107,12 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
                 spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
             });
 
-        let and = comparison
+        let and = equality
             .clone()
             .then(
                 just(Token::And)
                     .to(Binop::And)
-                    .then(comparison.clone())
+                    .then(equality.clone())
                     .repeated(),
             )
             .foldl(|lhs, (op, rhs)| {

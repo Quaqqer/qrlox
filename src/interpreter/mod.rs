@@ -7,8 +7,14 @@ use value::Value;
 use crate::ast::{Binop, Expr, Span, Spanned, Stmt};
 
 macro_rules! bail {
-    ($span:expr,  $($args:tt)*) => {
-        return Err(Error { message: format!($($args)*), span: $span.clone() })
+    ($span:expr,  $($fmt:tt)*) => {
+        return Err(ControlFlow::Error(err!($span, $($fmt)*)))
+    };
+}
+
+macro_rules! err {
+    ($span:expr,  $($fmt:tt)*) => {
+        Error { message: format!($($fmt)*), span: $span.clone() }
     };
 }
 
@@ -19,12 +25,17 @@ pub struct Error {
     pub span: Span,
 }
 
-pub struct InterpretorCtx {
+struct InterpreterCtx {
     globals: HashMap<String, Value>,
     scopes: Vec<HashMap<String, Value>>,
 }
 
-impl InterpretorCtx {
+pub enum ControlFlow {
+    Break,
+    Error(Error),
+}
+
+impl InterpreterCtx {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
@@ -81,7 +92,7 @@ impl InterpretorCtx {
         res
     }
 
-    pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
+    pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, ControlFlow> {
         let s = expr.s.clone();
 
         Ok(match &expr.v {
@@ -129,7 +140,7 @@ impl InterpretorCtx {
         lhs: &Spanned<Expr<'a>>,
         op: &Binop,
         rhs: &Spanned<Expr<'a>>,
-    ) -> Result<Value, Error> {
+    ) -> Result<Value, ControlFlow> {
         let lhs = self.eval_expr(lhs)?;
 
         match op {
@@ -200,7 +211,7 @@ impl InterpretorCtx {
         }
     }
 
-    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
+    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), ControlFlow> {
         match &stmt.v {
             Stmt::Expr(expr) => {
                 let _ = self.eval_expr(expr)?;
@@ -214,7 +225,7 @@ impl InterpretorCtx {
                 self.declare(var.to_string(), v);
             }
             Stmt::Block(stmts) => {
-                self.scoped(|ctx| -> Result<_, Error> {
+                self.scoped(|ctx| -> Result<_, ControlFlow> {
                     for stmt in stmts {
                         ctx.exec_stmt(stmt)?;
                     }
@@ -226,12 +237,38 @@ impl InterpretorCtx {
                 let cond = self.eval_expr(cond)?;
 
                 if cond.is_truthy() {
-                    self.scoped(|ctx| -> Result<_, Error> { ctx.exec_stmt(then) })?;
+                    self.scoped(|ctx| -> Result<_, ControlFlow> { ctx.exec_stmt(then) })?;
                 } else if let Some(else_) = else_ {
-                    self.scoped(|ctx| -> Result<_, Error> { ctx.exec_stmt(else_) })?;
+                    self.scoped(|ctx| -> Result<_, ControlFlow> { ctx.exec_stmt(else_) })?;
                 }
             }
         };
         Ok(())
+    }
+}
+
+pub struct Interpreter {
+    ctx: InterpreterCtx,
+}
+
+impl Interpreter {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            ctx: InterpreterCtx::new(),
+        }
+    }
+    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
+        self.ctx.exec_stmt(stmt).map_err(|e| match e {
+            ControlFlow::Break => err!(stmt.s, "Tried to break outside of a loop."),
+            ControlFlow::Error(error) => error,
+        })
+    }
+
+    pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
+        self.ctx.eval_expr(expr).map_err(|e| match e {
+            ControlFlow::Break => unreachable!("Cannot break in an expression."),
+            ControlFlow::Error(error) => error,
+        })
     }
 }

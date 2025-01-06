@@ -1,6 +1,6 @@
 use crate::{
     ast::{self, Span},
-    interpreter::{self, InterpretorCtx},
+    interpreter::{self, Interpreter},
     lex::Token,
     parse::{create_report, expr_or_stmt_parser},
     ARIADNE_CONFIG,
@@ -20,7 +20,7 @@ pub fn repl() {
     // Attempt to load history
     let _ = rl.load_history(&hist_file);
 
-    let mut ctx = InterpretorCtx::new();
+    let mut ctx = Interpreter::new();
 
     loop {
         let readline = rl.readline("> ");
