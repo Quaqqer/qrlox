@@ -20,7 +20,7 @@ pub fn repl() {
     // Attempt to load history
     let _ = rl.load_history(&hist_file);
 
-    let mut ctx = Interpreter::new();
+    let mut interpreter = Interpreter::new();
 
     loop {
         let readline = rl.readline("> ");
@@ -55,13 +55,15 @@ pub fn repl() {
 
                 // Evaluate parsed ast
                 match ast {
-                    crate::parse::StmtOrExpr::Stmt(stmt) => match ctx.exec_stmt(&stmt) {
-                        Ok(()) => {}
-                        Err(err) => create_error_report(&err)
-                            .eprint(ariadne::Source::from(&line))
-                            .unwrap(),
-                    },
-                    crate::parse::StmtOrExpr::Expr(expr) => match ctx.eval_expr(&expr) {
+                    crate::parse::ProgramOrExpr::Program(stmts) => {
+                        match interpreter.exec_program(&stmts) {
+                            Ok(()) => {}
+                            Err(err) => create_error_report(&err)
+                                .eprint(ariadne::Source::from(&line))
+                                .unwrap(),
+                        }
+                    }
+                    crate::parse::ProgramOrExpr::Expr(expr) => match interpreter.eval_expr(&expr) {
                         Ok(value) => println!("{}", value.repr()),
                         Err(err) => create_error_report(&err)
                             .eprint(ariadne::Source::from(&line))

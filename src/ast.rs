@@ -114,4 +114,8 @@ pub enum Stmt<'a> {
         then: Box<Spanned<Stmt<'a>>>,
         else_: Option<Box<Spanned<Stmt<'a>>>>,
     },
+    While {
+        cond: Spanned<Expr<'a>>,
+        body: Box<Spanned<Stmt<'a>>>,
+    },
 }

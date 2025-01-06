@@ -6,8 +6,8 @@ use crate::ast::{Expr, Spanned};
 use crate::lex::Token;
 use crate::ARIADNE_CONFIG;
 
-pub enum StmtOrExpr<'a> {
-    Stmt(Spanned<Stmt<'a>>),
+pub enum ProgramOrExpr<'a> {
+    Program(Vec<Spanned<Stmt<'a>>>),
     Expr(Spanned<Expr<'a>>),
 }
 
@@ -182,12 +182,32 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
                 )
             });
 
-        print.or(var_decl).or(block).or(if_).or(expr)
+        let while_ = just(Token::While)
+            .ignore_then(just(Token::LParen))
+            .ignore_then(expr_parser())
+            .then_ignore(just(Token::RParen))
+            .then(stmt_parser)
+            .map_with_span(|(cond, body), span| {
+                spanned(
+                    Stmt::While {
+                        cond,
+                        body: Box::new(body),
+                    },
+                    span,
+                )
+            });
+
+        print.or(var_decl).or(block).or(if_).or(while_).or(expr)
     })
 }
 
-pub fn expr_or_stmt_parser<'a>() -> impl Parser<Token<'a>, StmtOrExpr<'a>, Error = Error<'a>> {
+pub fn expr_or_stmt_parser<'a>() -> impl Parser<Token<'a>, ProgramOrExpr<'a>, Error = Error<'a>> {
     expr_parser()
-        .map(StmtOrExpr::Expr)
-        .or(stmt_parser().map(StmtOrExpr::Stmt))
+        .map(ProgramOrExpr::Expr)
+        .or(program_parser().map(ProgramOrExpr::Program))
+        .then_ignore(end())
+}
+
+pub fn program_parser<'a>() -> impl Parser<Token<'a>, Vec<Spanned<Stmt<'a>>>, Error = Error<'a>> {
+    stmt_parser().repeated().then_ignore(end())
 }

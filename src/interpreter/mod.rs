@@ -242,6 +242,11 @@ impl InterpreterCtx {
                     self.scoped(|ctx| -> Result<_, ControlFlow> { ctx.exec_stmt(else_) })?;
                 }
             }
+            Stmt::While { cond, body } => {
+                while self.eval_expr(cond)?.is_truthy() {
+                    self.exec_stmt(body)?;
+                }
+            }
         };
         Ok(())
     }
@@ -258,11 +263,19 @@ impl Interpreter {
             ctx: InterpreterCtx::new(),
         }
     }
+
     pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
         self.ctx.exec_stmt(stmt).map_err(|e| match e {
             ControlFlow::Break => err!(stmt.s, "Tried to break outside of a loop."),
             ControlFlow::Error(error) => error,
         })
+    }
+
+    pub fn exec_program(&mut self, stmts: &Vec<Spanned<Stmt<'_>>>) -> Result<(), Error> {
+        for stmt in stmts {
+            self.exec_stmt(stmt)?;
+        }
+        Ok(())
     }
 
     pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
