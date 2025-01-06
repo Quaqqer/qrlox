@@ -21,25 +21,55 @@ pub struct Error {
 
 pub struct Ctx {
     globals: HashMap<String, Value>,
+    scopes: Vec<HashMap<String, Value>>,
 }
 
 impl Ctx {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             globals: HashMap::new(),
+            scopes: Vec::new(),
         }
     }
 
     fn declare(&mut self, var: String, value: Value) {
-        self.globals.insert(var, value);
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(var, value);
+        } else {
+            self.globals.insert(var, value);
+        }
     }
 
     fn lookup(&mut self, var: &str) -> Option<Value> {
-        self.globals.get(var).cloned()
+        let Self { globals, scopes } = self;
+
+        for scope in std::iter::once(globals).chain(scopes).rev() {
+            if let Some(value) = scope.get(var) {
+                return Some(value.clone());
+            }
+        }
+
+        None
+    }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop().expect("Popped too many scopes");
+    }
+
+    fn scoped<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.enter_scope();
+        let res = f(self);
+        self.exit_scope();
+        res
     }
 }
 
-pub fn eval_expr<'a>(ctx: &mut Ctx, expr: &Spanned<Expr<'a>>) -> Result<Value, Error> {
+pub fn eval_expr(ctx: &mut Ctx, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
     let s = expr.s.clone();
 
     Ok(match &expr.v {
@@ -146,6 +176,15 @@ pub fn exec_stmt(ctx: &mut Ctx, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
         Stmt::VarDecl(var, expr) => {
             let v = eval_expr(ctx, expr)?;
             ctx.declare(var.to_string(), v);
+        }
+        Stmt::Block(stmts) => {
+            ctx.scoped(|ctx| -> Result<_, Error> {
+                for stmt in stmts {
+                    exec_stmt(ctx, stmt)?;
+                }
+
+                Ok(())
+            })?;
         }
     };
     Ok(())
