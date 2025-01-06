@@ -1,6 +1,6 @@
 use crate::{
     ast::{self, Span},
-    interpreter::{self, eval_expr, exec_stmt, Ctx},
+    interpreter::{self, InterpretorCtx},
     lex::Token,
     parse::{create_report, expr_or_stmt_parser},
     ARIADNE_CONFIG,
@@ -20,7 +20,7 @@ pub fn repl() {
     // Attempt to load history
     let _ = rl.load_history(&hist_file);
 
-    let mut ctx = Ctx::new();
+    let mut ctx = InterpretorCtx::new();
 
     loop {
         let readline = rl.readline("> ");
@@ -55,13 +55,13 @@ pub fn repl() {
 
                 // Evaluate parsed ast
                 match ast {
-                    crate::parse::StmtOrExpr::Stmt(stmt) => match exec_stmt(&mut ctx, &stmt) {
+                    crate::parse::StmtOrExpr::Stmt(stmt) => match ctx.exec_stmt(&stmt) {
                         Ok(()) => {}
                         Err(err) => create_error_report(&err)
                             .eprint(ariadne::Source::from(&line))
                             .unwrap(),
                     },
-                    crate::parse::StmtOrExpr::Expr(expr) => match eval_expr(&mut ctx, &expr) {
+                    crate::parse::StmtOrExpr::Expr(expr) => match ctx.eval_expr(&expr) {
                         Ok(value) => println!("{}", value.repr()),
                         Err(err) => create_error_report(&err)
                             .eprint(ariadne::Source::from(&line))
