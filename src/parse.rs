@@ -197,7 +197,24 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
                 )
             });
 
-        print.or(var_decl).or(block).or(if_).or(while_).or(expr)
+        let break_ = just(Token::Break)
+            .then(just(Token::Semicolon))
+            .ignored()
+            .map_with_span(|(), s| spanned(Stmt::Break, s));
+
+        let continue_ = just(Token::Continue)
+            .then(just(Token::Semicolon))
+            .ignored()
+            .map_with_span(|(), s| spanned(Stmt::Continue, s));
+
+        print
+            .or(var_decl)
+            .or(block)
+            .or(if_)
+            .or(while_)
+            .or(break_)
+            .or(continue_)
+            .or(expr)
     })
 }
 

@@ -80,6 +80,10 @@ pub enum Token<'a> {
     Var,
     #[token("while")]
     While,
+    #[token("break")]
+    Break,
+    #[token("continue")]
+    Continue,
 
     Error,
 }
@@ -129,6 +133,8 @@ impl std::fmt::Display for Token<'_> {
                 Token::Var => "'var'",
                 Token::While => "'while'",
                 Token::Error => "'error'",
+                Token::Break => "'break'",
+                Token::Continue => "'continue'",
             }
         )
     }

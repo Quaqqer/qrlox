@@ -32,6 +32,7 @@ struct InterpreterCtx {
 
 pub enum ControlFlow {
     Break,
+    Continue,
     Error(Error),
 }
 
@@ -244,9 +245,16 @@ impl InterpreterCtx {
             }
             Stmt::While { cond, body } => {
                 while self.eval_expr(cond)?.is_truthy() {
-                    self.exec_stmt(body)?;
+                    match self.exec_stmt(body) {
+                        Ok(()) => {}
+                        Err(ControlFlow::Continue) => continue,
+                        Err(ControlFlow::Break) => break,
+                        e @ Err(ControlFlow::Error(_)) => return e,
+                    }
                 }
             }
+            Stmt::Break => return Err(ControlFlow::Break),
+            Stmt::Continue => return Err(ControlFlow::Continue),
         };
         Ok(())
     }
@@ -267,6 +275,7 @@ impl Interpreter {
     pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
         self.ctx.exec_stmt(stmt).map_err(|e| match e {
             ControlFlow::Break => err!(stmt.s, "Tried to break outside of a loop."),
+            ControlFlow::Continue => err!(stmt.s, "Tried to continue outside of a loop."),
             ControlFlow::Error(error) => error,
         })
     }
@@ -281,6 +290,7 @@ impl Interpreter {
     pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
         self.ctx.eval_expr(expr).map_err(|e| match e {
             ControlFlow::Break => unreachable!("Cannot break in an expression."),
+            ControlFlow::Continue => unreachable!("Cannot continue in an expression."),
             ControlFlow::Error(error) => error,
         })
     }

@@ -118,4 +118,6 @@ pub enum Stmt<'a> {
         cond: Spanned<Expr<'a>>,
         body: Box<Spanned<Stmt<'a>>>,
     },
+    Break,
+    Continue,
 }
