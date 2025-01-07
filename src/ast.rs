@@ -90,7 +90,7 @@ impl Binop {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr<'a> {
     Number(f64),
     String(&'a str),
@@ -103,7 +103,7 @@ pub enum Expr<'a> {
     Var(&'a str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt<'a> {
     Expr(Spanned<Expr<'a>>),
     Print(Spanned<Expr<'a>>),
@@ -116,6 +116,12 @@ pub enum Stmt<'a> {
     },
     While {
         cond: Spanned<Expr<'a>>,
+        body: Box<Spanned<Stmt<'a>>>,
+    },
+    For {
+        initializer: Option<Box<Spanned<Stmt<'a>>>>,
+        condition: Option<Spanned<Expr<'a>>>,
+        increment: Option<Spanned<Expr<'a>>>,
         body: Box<Spanned<Stmt<'a>>>,
     },
     Break,

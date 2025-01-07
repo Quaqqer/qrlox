@@ -247,9 +247,44 @@ impl InterpreterCtx {
                 while self.eval_expr(cond)?.is_truthy() {
                     match self.exec_stmt(body) {
                         Ok(()) => {}
-                        Err(ControlFlow::Continue) => continue,
+                        // Continuing is a no-op
+                        Err(ControlFlow::Continue) => {}
                         Err(ControlFlow::Break) => break,
                         e @ Err(ControlFlow::Error(_)) => return e,
+                    }
+                }
+            }
+            Stmt::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
+                if let Some(initializer) = initializer {
+                    self.exec_stmt(initializer)?;
+                }
+
+                loop {
+                    let run = match condition {
+                        Some(condition) => self.eval_expr(condition)?.is_truthy(),
+                        None => true,
+                    };
+
+                    if !run {
+                        break;
+                    }
+
+                    let body_res = self.exec_stmt(body);
+                    match body_res {
+                        Ok(()) => {}
+                        Err(ControlFlow::Break) => break,
+                        // Continuing is a no-op
+                        Err(ControlFlow::Continue) => {}
+                        e @ Err(ControlFlow::Error(_)) => return e,
+                    }
+
+                    if let Some(increment) = increment {
+                        self.eval_expr(increment)?;
                     }
                 }
             }
