@@ -163,13 +163,9 @@ fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>>
             .map_with_span(|expr, span| spanned(Stmt::Print(expr), span));
 
         let block = just(Token::LBrace)
-            .ignore_then(
-                stmt_parser
-                    .clone()
-                    .repeated()
-                    .map_with_span(|stmts, s| spanned(Stmt::Block(stmts), s)),
-            )
-            .then_ignore(just(Token::RBrace));
+            .ignore_then(stmt_parser.clone().repeated())
+            .then_ignore(just(Token::RBrace))
+            .map_with_span(|stmts, s| spanned(Stmt::Block(stmts), s));
 
         let if_ = just(Token::If)
             .then(just(Token::LParen))
@@ -263,6 +259,11 @@ fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>>
                 )
             });
 
+        let return_ = just(Token::Return)
+            .ignore_then(expr_parser())
+            .then_ignore(just(Token::Semicolon))
+            .map_with_span(|expr, s| spanned(Stmt::Return(expr), s));
+
         print
             .or(var_decl())
             .or(block)
@@ -272,6 +273,7 @@ fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>>
             .or(break_)
             .or(continue_)
             .or(fun)
+            .or(return_)
             .or(expr_stmt())
     })
 }

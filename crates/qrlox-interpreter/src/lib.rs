@@ -42,6 +42,9 @@ impl Interpreter {
             .map_err(|e| match e {
                 ControlFlow::Break => err!(stmt.s, "Tried to break outside of a loop."),
                 ControlFlow::Continue => err!(stmt.s, "Tried to continue outside of a loop."),
+                ControlFlow::Return(_) => {
+                    err!(stmt.s, "Tried to return outside of a function call.")
+                }
                 ControlFlow::Error(error) => error,
             })
             .map_err(|err| Box::new(interpreter_error_report(&err, ariadne_config)))
@@ -68,6 +71,7 @@ impl Interpreter {
             .map_err(|e| match e {
                 ControlFlow::Break => unreachable!("Cannot break in an expression."),
                 ControlFlow::Continue => unreachable!("Cannot continue in an expression."),
+                ControlFlow::Return(_) => unreachable!("Cannot return in an expression"),
                 ControlFlow::Error(error) => error,
             })
             .map_err(|err| Box::new(interpreter_error_report(&err, ariadne_config)))

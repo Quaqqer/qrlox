@@ -30,6 +30,7 @@ pub enum ControlFlow {
     Break,
     Continue,
     Error(Error),
+    Return(Value),
 }
 
 impl InterpreterCtx {
@@ -106,7 +107,7 @@ impl InterpreterCtx {
     }
 
     fn enter_env(&mut self) {
-        self.environments.push(Vec::new());
+        self.environments.push(vec![HashMap::new()]);
     }
 
     fn exit_env(&mut self) {
@@ -203,6 +204,7 @@ impl InterpreterCtx {
                                 Err(ControlFlow::Continue) => {
                                     bail!(stmt.s, "Cannot continue out of a function")
                                 }
+                                Err(ControlFlow::Return(v)) => return Ok(v),
                                 Err(e @ ControlFlow::Error(_)) => return Err(e),
                             }
                         }
@@ -296,6 +298,8 @@ impl InterpreterCtx {
     }
 
     pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt>) -> Result<(), ControlFlow> {
+        let s = &stmt.s;
+
         match &stmt.v {
             Stmt::Expr(expr) => {
                 let _ = self.eval_expr(expr)?;
@@ -333,7 +337,7 @@ impl InterpreterCtx {
                         // Continuing is a no-op
                         Err(ControlFlow::Continue) => {}
                         Err(ControlFlow::Break) => break,
-                        e @ Err(ControlFlow::Error(_)) => return e,
+                        e @ Err(ControlFlow::Error(_) | ControlFlow::Return(_)) => return e,
                     }
                 }
             }
@@ -363,7 +367,7 @@ impl InterpreterCtx {
                         Err(ControlFlow::Break) => break,
                         // Continuing is a no-op
                         Err(ControlFlow::Continue) => {}
-                        e @ Err(ControlFlow::Error(_)) => return e,
+                        e @ Err(ControlFlow::Error(_) | ControlFlow::Return(_)) => return e,
                     }
 
                     if let Some(increment) = increment {
@@ -384,6 +388,12 @@ impl InterpreterCtx {
                         body: body.clone(),
                     })),
                 );
+            }
+            Stmt::Return(expr) => {
+                if self.environments.len() == 1 {
+                    bail!(s, "Tried to return outside of a function call.")
+                }
+                return Err(ControlFlow::Return(self.eval_expr(expr)?));
             }
         };
         Ok(())

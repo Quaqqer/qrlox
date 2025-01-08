@@ -125,7 +125,6 @@ pub enum Stmt {
     Expr(Spanned<Expr>),
     Print(Spanned<Expr>),
     VarDecl(Rc<String>, Spanned<Expr>),
-    FunDecl(Rc<String>, Vec<Spanned<Rc<String>>>, Vec<Spanned<Stmt>>),
     Block(Vec<Spanned<Stmt>>),
     If {
         cond: Spanned<Expr>,
@@ -144,4 +143,6 @@ pub enum Stmt {
     },
     Break,
     Continue,
+    FunDecl(Rc<String>, Vec<Spanned<Rc<String>>>, Vec<Spanned<Stmt>>),
+    Return(Spanned<Expr>),
 }
