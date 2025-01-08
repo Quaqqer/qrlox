@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use qrlox_syntax::{ast::Span, Binop, Expr, Spanned, Stmt};
 
 use crate::{
-    value::{Native, Value},
+    value::{Function, Native, Value},
     Error,
 };
 
@@ -23,7 +23,7 @@ pub(crate) use {bail, err};
 
 pub(crate) struct InterpreterCtx {
     globals: HashMap<String, Value>,
-    scopes: Vec<HashMap<String, Value>>,
+    environments: Vec<Vec<HashMap<String, Value>>>,
 }
 
 pub enum ControlFlow {
@@ -37,7 +37,7 @@ impl InterpreterCtx {
     pub fn new() -> Self {
         Self {
             globals: HashMap::new(),
-            scopes: Vec::new(),
+            environments: vec![Vec::new()],
         }
     }
 
@@ -46,17 +46,23 @@ impl InterpreterCtx {
     }
 
     fn declare(&mut self, var: String, value: Value) {
-        if let Some(scope) = self.scopes.last_mut() {
+        if let Some(scope) = self.env_mut().last_mut() {
             scope.insert(var, value);
         } else {
             self.globals.insert(var, value);
         }
     }
 
-    fn lookup(&mut self, var: &str) -> Option<Value> {
-        let Self { globals, scopes } = self;
+    fn lookup(&self, var: &str) -> Option<Value> {
+        let Self {
+            globals,
+            environments,
+        } = self;
 
-        for scope in std::iter::once(globals).chain(scopes).rev() {
+        for scope in std::iter::once(globals)
+            .chain(environments.last().unwrap())
+            .rev()
+        {
             if let Some(value) = scope.get(var) {
                 return Some(value.clone());
             }
@@ -66,9 +72,15 @@ impl InterpreterCtx {
     }
 
     fn assign(&mut self, var: &str, value: Value) -> bool {
-        let Self { globals, scopes } = self;
+        let Self {
+            globals,
+            environments,
+        } = self;
 
-        for scope in std::iter::once(globals).chain(scopes).rev() {
+        for scope in std::iter::once(globals)
+            .chain(environments.last_mut().unwrap())
+            .rev()
+        {
             if let Some(ref_) = scope.get_mut(var) {
                 *ref_ = value;
                 return true;
@@ -79,11 +91,11 @@ impl InterpreterCtx {
     }
 
     fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.env_mut().push(HashMap::new());
     }
 
     fn exit_scope(&mut self) {
-        self.scopes.pop().expect("Popped too many scopes");
+        self.env_mut().pop().expect("Popped too many scopes");
     }
 
     fn scoped<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
@@ -93,7 +105,32 @@ impl InterpreterCtx {
         res
     }
 
-    pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, ControlFlow> {
+    fn enter_env(&mut self) {
+        self.environments.push(Vec::new());
+    }
+
+    fn exit_env(&mut self) {
+        self.environments
+            .pop()
+            .expect("Popped too many environments");
+    }
+
+    fn with_env<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        self.enter_env();
+        let res = f(self);
+        self.exit_env();
+        res
+    }
+
+    fn env(&self) -> &Vec<HashMap<String, Value>> {
+        self.environments.last().unwrap()
+    }
+
+    fn env_mut(&mut self) -> &mut Vec<HashMap<String, Value>> {
+        self.environments.last_mut().unwrap()
+    }
+
+    pub fn eval_expr(&mut self, expr: &Spanned<Expr>) -> Result<Value, ControlFlow> {
         let s = expr.s.clone();
 
         Ok(match &expr.v {
@@ -133,31 +170,60 @@ impl InterpreterCtx {
                 res
             }
             Expr::Call(callable, args) => {
-                let callable = self.eval_expr(callable)?;
+                let callable_v = self.eval_expr(callable)?;
                 let mut arg_values = Vec::with_capacity(args.len());
                 for arg in args {
                     arg_values.push(self.eval_expr(arg)?);
                 }
-                match callable {
+                match callable_v {
                     Value::Native(native) => {
                         (native.f)(self, &s, arg_values).map_err(ControlFlow::Error)?
                     }
+                    Value::Function(fun) => self.with_env(|ctx| -> Result<Value, ControlFlow> {
+                        if arg_values.len() != fun.params.len() {
+                            bail!(
+                                s,
+                                "Expected {} arguments, got {}",
+                                fun.params.len(),
+                                arg_values.len()
+                            );
+                        }
+
+                        for (arg, val) in fun.params.iter().zip(arg_values.into_iter()) {
+                            ctx.declare(arg.clone(), val);
+                        }
+
+                        for stmt in &fun.body {
+                            let res = ctx.exec_stmt(stmt);
+                            match res {
+                                Ok(()) => {}
+                                Err(ControlFlow::Break) => {
+                                    bail!(stmt.s, "Cannot break out of a function")
+                                }
+                                Err(ControlFlow::Continue) => {
+                                    bail!(stmt.s, "Cannot continue out of a function")
+                                }
+                                Err(e @ ControlFlow::Error(_)) => return Err(e),
+                            }
+                        }
+                        Ok(Value::Nil)
+                    })?,
                     _ => bail!(
-                        s,
+                        callable.s,
                         "Values of type {} cannot be called",
-                        callable.type_().name()
+                        callable_v.type_().name()
                     ),
                 }
             }
         })
     }
 
-    fn eval_binop<'a>(
+    fn eval_binop(
         &mut self,
         span: Span,
-        lhs: &Spanned<Expr<'a>>,
+        lhs: &Spanned<Expr>,
         op: &Binop,
-        rhs: &Spanned<Expr<'a>>,
+        rhs: &Spanned<Expr>,
     ) -> Result<Value, ControlFlow> {
         let lhs = self.eval_expr(lhs)?;
 
@@ -229,7 +295,7 @@ impl InterpreterCtx {
         }
     }
 
-    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), ControlFlow> {
+    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt>) -> Result<(), ControlFlow> {
         match &stmt.v {
             Stmt::Expr(expr) => {
                 let _ = self.eval_expr(expr)?;
@@ -307,6 +373,18 @@ impl InterpreterCtx {
             }
             Stmt::Break => return Err(ControlFlow::Break),
             Stmt::Continue => return Err(ControlFlow::Continue),
+            Stmt::FunDecl(name, params, body) => {
+                self.declare(
+                    name.as_ref().clone(),
+                    Value::Function(Rc::new(Function {
+                        params: params
+                            .iter()
+                            .map(|spanned| spanned.v.as_ref().clone())
+                            .collect(),
+                        body: body.clone(),
+                    })),
+                );
+            }
         };
         Ok(())
     }

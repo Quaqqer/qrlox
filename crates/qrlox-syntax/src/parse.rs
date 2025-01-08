@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use chumsky::prelude::*;
 use chumsky::{error::Simple, Parser};
 
@@ -8,12 +10,13 @@ use crate::ProgramOrExpr;
 
 type Error<'a> = Simple<Token<'a>, ast::Span>;
 
-pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Error<'a>> {
+#[allow(clippy::let_and_return)]
+pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr>, Error = Error<'a>> {
     recursive(|expression| {
         let primary = select! { |span|
             Token::Number(s) => spanned(Expr::Number(s.parse().unwrap()), span),
-            Token::String(s) => spanned(Expr::String(s), span),
-            Token::Identifier(i) => spanned(Expr::Var(i), span),
+            Token::String(s) => spanned(Expr::String(Rc::new(s.to_string())), span),
+            Token::Identifier(i) => spanned(Expr::Var(Rc::new(i.to_string())), span),
             Token::True => spanned(Expr::Boolean(true), span),
             Token::False => spanned(Expr::Boolean(false), span),
             Token::Nil => spanned(Expr::Nil, span),
@@ -128,29 +131,31 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
         let assignment = select!(Token::Identifier(i) => i)
             .then_ignore(just(Token::Eq))
             .then(or.clone())
-            .map_with_span(|(var, expr), span| spanned(Expr::Assign(var, Box::new(expr)), span))
+            .map_with_span(|(var, expr), span| {
+                spanned(Expr::Assign(Rc::new(var.to_string()), Box::new(expr)), span)
+            })
             .or(or);
 
         assignment
     })
 }
 
-fn var_decl<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
+fn var_decl<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> {
     just(Token::Var)
         .ignore_then(select! {Token::Identifier(ident) => ident})
         .then_ignore(just(Token::Eq))
         .then(expr_parser())
         .then_ignore(just(Token::Semicolon))
-        .map_with_span(|(var, expr), s| spanned(Stmt::VarDecl(var, expr), s))
+        .map_with_span(|(var, expr), s| spanned(Stmt::VarDecl(Rc::new(var.to_string()), expr), s))
 }
 
-fn expr_stmt<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
+fn expr_stmt<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> {
     expr_parser()
         .then_ignore(just(Token::Semicolon))
         .map_with_span(|expr, span| spanned(Stmt::Expr(expr), span))
 }
 
-fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
+fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> {
     recursive(|stmt_parser| {
         let print = just(Token::Print)
             .ignore_then(expr_parser())
@@ -233,6 +238,31 @@ fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<
             .ignored()
             .map_with_span(|(), s| spanned(Stmt::Continue, s));
 
+        let fun = just(Token::Fun)
+            .ignore_then(select! {Token::Identifier(ident)=>ident})
+            .then_ignore(just(Token::LParen))
+            .then(
+                select! {Token::Identifier(ident)=>ident}
+                    .map_with_span(spanned)
+                    .separated_by(just(Token::Comma)),
+            )
+            .then_ignore(just(Token::RParen))
+            .then_ignore(just(Token::LBrace))
+            .then(stmt_parser.clone().repeated())
+            .then_ignore(just(Token::RBrace))
+            .map_with_span(|((name, args), body), s| {
+                spanned(
+                    Stmt::FunDecl(
+                        Rc::new(name.to_string()),
+                        args.iter()
+                            .map(|arg| arg.clone().map(|s| Rc::new(s.to_string())))
+                            .collect::<Vec<_>>(),
+                        body,
+                    ),
+                    s,
+                )
+            });
+
         print
             .or(var_decl())
             .or(block)
@@ -241,19 +271,20 @@ fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<
             .or(for_)
             .or(break_)
             .or(continue_)
+            .or(fun)
             .or(expr_stmt())
     })
 }
 
 pub(crate) fn expr_or_program_parser<'a>(
-) -> impl Parser<Token<'a>, ProgramOrExpr<'a>, Error = Error<'a>> {
+) -> impl Parser<Token<'a>, ProgramOrExpr, Error = Error<'a>> {
     expr_parser()
         .map(ProgramOrExpr::Expr)
-        .or(program_parser().map(ProgramOrExpr::Program))
         .then_ignore(end())
+        .or(program_parser().map(ProgramOrExpr::Program))
 }
 
-pub(crate) fn program_parser<'a>(
-) -> impl Parser<Token<'a>, Vec<Spanned<Stmt<'a>>>, Error = Error<'a>> {
+pub(crate) fn program_parser<'a>() -> impl Parser<Token<'a>, Vec<Spanned<Stmt>>, Error = Error<'a>>
+{
     stmt_parser().repeated().then_ignore(end())
 }

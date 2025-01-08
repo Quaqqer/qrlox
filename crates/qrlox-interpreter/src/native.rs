@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use qrlox_macros::interpreter_native;
 use qrlox_syntax::ast::Span;
 
@@ -42,7 +40,7 @@ where
 }
 
 pub fn create_std() -> Vec<Native> {
-    vec![clock(), add()]
+    vec![clock()]
 }
 
 #[interpreter_native]

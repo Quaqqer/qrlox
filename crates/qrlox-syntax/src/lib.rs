@@ -33,7 +33,7 @@ fn token_stream<'a>(
 pub fn parse_expr_or_program<'a, 'b>(
     source: &'a str,
     ariadne_config: &'a ariadne::Config,
-) -> (Option<ProgramOrExpr<'a>>, Vec<ariadne::Report<'b>>) {
+) -> (Option<ProgramOrExpr>, Vec<ariadne::Report<'b>>) {
     let stream = token_stream(source);
     let (ast, errors) = parse::expr_or_program_parser().parse_recovery(stream);
     let errors = errors
@@ -46,7 +46,7 @@ pub fn parse_expr_or_program<'a, 'b>(
 pub fn parse_program<'a, 'b>(
     source: &'a str,
     ariadne_config: &'a ariadne::Config,
-) -> (Option<Vec<Spanned<Stmt<'a>>>>, Vec<ariadne::Report<'b>>) {
+) -> (Option<Vec<Spanned<Stmt>>>, Vec<ariadne::Report<'b>>) {
     let stream = token_stream(source);
     let (ast, errors) = parse::program_parser().parse_recovery(stream);
     let errors = errors
@@ -56,9 +56,9 @@ pub fn parse_program<'a, 'b>(
     (ast, errors)
 }
 
-pub enum ProgramOrExpr<'a> {
-    Program(Vec<Spanned<Stmt<'a>>>),
-    Expr(Spanned<Expr<'a>>),
+pub enum ProgramOrExpr {
+    Program(Vec<Spanned<Stmt>>),
+    Expr(Spanned<Expr>),
 }
 
 pub fn error_report<'a>(

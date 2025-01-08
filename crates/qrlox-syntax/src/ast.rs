@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub struct Span {
@@ -59,6 +59,18 @@ pub fn spanned<T>(v: T, span: Span) -> Spanned<T> {
     Spanned { v, s: span }
 }
 
+impl<T> Spanned<T> {
+    pub fn map<U, F>(self, f: F) -> Spanned<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        Spanned {
+            v: f(self.v),
+            s: self.s,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Binop {
     Eq,
@@ -95,39 +107,40 @@ impl Binop {
 }
 
 #[derive(Debug, Clone)]
-pub enum Expr<'a> {
+pub enum Expr {
     Number(f64),
-    String(&'a str),
+    String(Rc<String>),
     Boolean(bool),
     Nil,
-    Not(Box<Spanned<Expr<'a>>>),
-    Neg(Box<Spanned<Expr<'a>>>),
-    Binary(Box<Spanned<Expr<'a>>>, Binop, Box<Spanned<Expr<'a>>>),
-    Assign(&'a str, Box<Spanned<Expr<'a>>>),
-    Var(&'a str),
-    Call(Box<Spanned<Expr<'a>>>, Vec<Spanned<Expr<'a>>>),
+    Not(Box<Spanned<Expr>>),
+    Neg(Box<Spanned<Expr>>),
+    Binary(Box<Spanned<Expr>>, Binop, Box<Spanned<Expr>>),
+    Assign(Rc<String>, Box<Spanned<Expr>>),
+    Var(Rc<String>),
+    Call(Box<Spanned<Expr>>, Vec<Spanned<Expr>>),
 }
 
 #[derive(Debug, Clone)]
-pub enum Stmt<'a> {
-    Expr(Spanned<Expr<'a>>),
-    Print(Spanned<Expr<'a>>),
-    VarDecl(&'a str, Spanned<Expr<'a>>),
-    Block(Vec<Spanned<Stmt<'a>>>),
+pub enum Stmt {
+    Expr(Spanned<Expr>),
+    Print(Spanned<Expr>),
+    VarDecl(Rc<String>, Spanned<Expr>),
+    FunDecl(Rc<String>, Vec<Spanned<Rc<String>>>, Vec<Spanned<Stmt>>),
+    Block(Vec<Spanned<Stmt>>),
     If {
-        cond: Spanned<Expr<'a>>,
-        then: Box<Spanned<Stmt<'a>>>,
-        else_: Option<Box<Spanned<Stmt<'a>>>>,
+        cond: Spanned<Expr>,
+        then: Box<Spanned<Stmt>>,
+        else_: Option<Box<Spanned<Stmt>>>,
     },
     While {
-        cond: Spanned<Expr<'a>>,
-        body: Box<Spanned<Stmt<'a>>>,
+        cond: Spanned<Expr>,
+        body: Box<Spanned<Stmt>>,
     },
     For {
-        initializer: Option<Box<Spanned<Stmt<'a>>>>,
-        condition: Option<Spanned<Expr<'a>>>,
-        increment: Option<Spanned<Expr<'a>>>,
-        body: Box<Spanned<Stmt<'a>>>,
+        initializer: Option<Box<Spanned<Stmt>>>,
+        condition: Option<Spanned<Expr>>,
+        increment: Option<Spanned<Expr>>,
+        body: Box<Spanned<Stmt>>,
     },
     Break,
     Continue,

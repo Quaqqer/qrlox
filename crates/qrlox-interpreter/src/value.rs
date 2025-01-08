@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use qrlox_syntax::ast::Span;
+use qrlox_syntax::{ast::Span, Spanned, Stmt};
 
 use crate::interpret::InterpreterCtx;
 
@@ -13,11 +13,18 @@ pub enum Value {
     Number(f64),
     String(String),
     Native(Rc<Native>),
+    Function(Rc<Function>),
 }
 
 pub struct Native {
     pub name: String,
     pub f: Box<dyn Fn(&mut InterpreterCtx, &Span, Vec<Value>) -> Result<Value, Error>>,
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub params: Vec<String>,
+    pub body: Vec<Spanned<Stmt>>,
 }
 
 impl std::fmt::Debug for Native {
@@ -34,6 +41,7 @@ impl Value {
             Value::Number(_) => ValueType::Number,
             Value::String(_) => ValueType::String,
             Value::Native(_) => ValueType::Function,
+            Value::Function(_) => ValueType::Function,
         }
     }
 
@@ -47,6 +55,7 @@ impl Value {
             Value::Number(n) => n.to_string(),
             Value::String(s) => "\"".to_string() + s + "\"",
             Value::Native(_) => "function".to_string(),
+            Value::Function(_) => "function".to_string(),
         }
     }
 

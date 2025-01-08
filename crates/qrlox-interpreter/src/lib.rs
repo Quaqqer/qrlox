@@ -34,7 +34,7 @@ impl Interpreter {
 
     pub fn exec_stmt<'a, 'b>(
         &'a mut self,
-        stmt: &'a Spanned<Stmt<'a>>,
+        stmt: &'a Spanned<Stmt>,
         ariadne_config: &'a ariadne::Config,
     ) -> Result<(), Box<ariadne::Report<'b>>> {
         self.ctx
@@ -49,7 +49,7 @@ impl Interpreter {
 
     pub fn exec_program<'a, 'b>(
         &'a mut self,
-        stmts: &'a Vec<Spanned<Stmt<'a>>>,
+        stmts: &'a Vec<Spanned<Stmt>>,
         ariadne_config: &'a ariadne::Config,
     ) -> Result<(), Box<ariadne::Report<'b>>> {
         for stmt in stmts {
@@ -60,7 +60,7 @@ impl Interpreter {
 
     pub fn eval_expr<'a, 'b>(
         &'a mut self,
-        expr: &'a Spanned<Expr<'a>>,
+        expr: &'a Spanned<Expr>,
         ariadne_config: &'a ariadne::Config,
     ) -> Result<Value, Box<ariadne::Report<'b>>> {
         self.ctx
