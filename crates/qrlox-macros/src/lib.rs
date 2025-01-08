@@ -1,14 +1,11 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+mod interpreter;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use interpreter::expand_native_function;
+use proc_macro::TokenStream;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[proc_macro_attribute]
+pub fn interpreter_native(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    expand_native_function(syn::parse_macro_input!(item as syn::ItemFn))
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }

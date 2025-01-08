@@ -1,12 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use qrlox_syntax::{ast::Span, Binop, Expr, Spanned, Stmt};
 
-use crate::{value::Value, Error};
+use crate::{
+    value::{Native, Value},
+    Error,
+};
 
 macro_rules! bail {
     ($span:expr,  $($fmt:tt)*) => {
-        return Err(ControlFlow::Error(err!($span, $($fmt)*)))
+        return Err($crate::interpret::ControlFlow::Error(err!($span, $($fmt)*)))
     };
 }
 
@@ -36,6 +39,10 @@ impl InterpreterCtx {
             globals: HashMap::new(),
             scopes: Vec::new(),
         }
+    }
+
+    pub fn add_native(&mut self, native: Native) {
+        self.declare(native.name.clone(), Value::Native(Rc::new(native)));
     }
 
     fn declare(&mut self, var: String, value: Value) {
@@ -133,7 +140,7 @@ impl InterpreterCtx {
                 }
                 match callable {
                     Value::Native(native) => {
-                        (native.f)(arg_values, s.clone()).map_err(ControlFlow::Error)?
+                        (native.f)(self, &s, arg_values).map_err(ControlFlow::Error)?
                     }
                     _ => bail!(
                         s,

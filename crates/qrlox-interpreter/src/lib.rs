@@ -1,8 +1,10 @@
+pub mod cast;
 mod interpret;
 mod native;
 pub mod value;
 
 use interpret::{err, ControlFlow, InterpreterCtx};
+use native::create_std;
 use value::Value;
 
 use qrlox_syntax::ast::{Expr, Span, Spanned, Stmt};
@@ -19,9 +21,15 @@ pub struct Interpreter {
 impl Interpreter {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self {
+        let mut interpreter = Self {
             ctx: InterpreterCtx::new(),
+        };
+
+        for native in create_std() {
+            interpreter.ctx.add_native(native);
         }
+
+        interpreter
     }
 
     pub fn exec_stmt<'a, 'b>(

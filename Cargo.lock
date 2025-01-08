@@ -424,12 +424,18 @@ name = "qrlox-interpreter"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "qrlox-macros",
  "qrlox-syntax",
 ]
 
 [[package]]
 name = "qrlox-macros"
 version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "qrlox-syntax"

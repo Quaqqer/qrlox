@@ -2,6 +2,8 @@ use std::rc::Rc;
 
 use qrlox_syntax::ast::Span;
 
+use crate::interpret::InterpreterCtx;
+
 use super::Error;
 
 #[derive(Debug, Clone)]
@@ -15,8 +17,7 @@ pub enum Value {
 
 pub struct Native {
     pub name: String,
-    pub arity: usize,
-    pub f: Box<dyn Fn(Vec<Value>, Span) -> Result<Value, Error>>,
+    pub f: Box<dyn Fn(&mut InterpreterCtx, &Span, Vec<Value>) -> Result<Value, Error>>,
 }
 
 impl std::fmt::Debug for Native {
@@ -98,7 +99,7 @@ pub enum ValueType {
 }
 
 impl ValueType {
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             ValueType::Nil => "nil",
             ValueType::Boolean => "boolean",
@@ -106,5 +107,29 @@ impl ValueType {
             ValueType::String => "string",
             ValueType::Function => "function",
         }
+    }
+}
+
+impl From<()> for Value {
+    fn from(_value: ()) -> Self {
+        Value::Nil
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Boolean(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Number(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::String(value)
     }
 }
