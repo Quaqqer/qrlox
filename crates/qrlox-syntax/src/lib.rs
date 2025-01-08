@@ -46,9 +46,9 @@ pub fn parse_expr_or_program<'a, 'b>(
 pub fn parse_program<'a, 'b>(
     source: &'a str,
     ariadne_config: &'a ariadne::Config,
-) -> (Option<ProgramOrExpr<'a>>, Vec<ariadne::Report<'b>>) {
+) -> (Option<Vec<Spanned<Stmt<'a>>>>, Vec<ariadne::Report<'b>>) {
     let stream = token_stream(source);
-    let (ast, errors) = parse::expr_or_program_parser().parse_recovery(stream);
+    let (ast, errors) = parse::program_parser().parse_recovery(stream);
     let errors = errors
         .iter()
         .map(|err| error_report(err, ariadne_config))

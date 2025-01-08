@@ -1,7 +1,8 @@
 [package]
-name = "qrlox"
+name = "qrlox-interpreter"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 ariadne.workspace = true
+qrlox-syntax = { version = "0.1.0", path = "../qrlox-syntax" }

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::Span;
+use qrlox_syntax::ast::Span;
 
 use super::Error;
 
@@ -61,7 +61,7 @@ impl PartialEq for Value {
             (Value::Boolean(lhs), Value::Boolean(rhs)) => lhs == rhs,
             (Value::Number(lhs), Value::Number(rhs)) => lhs == rhs,
             (Value::String(lhs), Value::String(rhs)) => lhs == rhs,
-            (Value::Native(lhs), Value::Native(rhs)) => Rc::ptr_eq(&lhs, &rhs),
+            (Value::Native(lhs), Value::Native(rhs)) => Rc::ptr_eq(lhs, rhs),
             _ => false,
         }
     }

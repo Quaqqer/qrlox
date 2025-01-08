@@ -1,11 +1,8 @@
-mod native;
-mod value;
-
 use std::collections::HashMap;
 
-use value::Value;
+use qrlox_syntax::{ast::Span, Binop, Expr, Spanned, Stmt};
 
-use crate::ast::{Binop, Expr, Span, Spanned, Stmt};
+use crate::{value::Value, Error};
 
 macro_rules! bail {
     ($span:expr,  $($fmt:tt)*) => {
@@ -19,14 +16,9 @@ macro_rules! err {
     };
 }
 
-pub(crate) use bail;
+pub(crate) use {bail, err};
 
-pub struct Error {
-    pub message: String,
-    pub span: Span,
-}
-
-struct InterpreterCtx {
+pub(crate) struct InterpreterCtx {
     globals: HashMap<String, Value>,
     scopes: Vec<HashMap<String, Value>>,
 }
@@ -310,41 +302,5 @@ impl InterpreterCtx {
             Stmt::Continue => return Err(ControlFlow::Continue),
         };
         Ok(())
-    }
-}
-
-pub struct Interpreter {
-    ctx: InterpreterCtx,
-}
-
-impl Interpreter {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            ctx: InterpreterCtx::new(),
-        }
-    }
-
-    pub fn exec_stmt(&mut self, stmt: &Spanned<Stmt<'_>>) -> Result<(), Error> {
-        self.ctx.exec_stmt(stmt).map_err(|e| match e {
-            ControlFlow::Break => err!(stmt.s, "Tried to break outside of a loop."),
-            ControlFlow::Continue => err!(stmt.s, "Tried to continue outside of a loop."),
-            ControlFlow::Error(error) => error,
-        })
-    }
-
-    pub fn exec_program(&mut self, stmts: &Vec<Spanned<Stmt<'_>>>) -> Result<(), Error> {
-        for stmt in stmts {
-            self.exec_stmt(stmt)?;
-        }
-        Ok(())
-    }
-
-    pub fn eval_expr(&mut self, expr: &Spanned<Expr<'_>>) -> Result<Value, Error> {
-        self.ctx.eval_expr(expr).map_err(|e| match e {
-            ControlFlow::Break => unreachable!("Cannot break in an expression."),
-            ControlFlow::Continue => unreachable!("Cannot continue in an expression."),
-            ControlFlow::Error(error) => error,
-        })
     }
 }

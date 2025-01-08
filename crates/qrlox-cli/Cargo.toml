@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ariadne.workspace = true
+clap.workspace = true
+platform-dirs = "0.3.0"
+qrlox-interpreter = { version = "0.1.0", path = "../qrlox-interpreter" }
+qrlox-syntax = { version = "0.1.0", path = "../qrlox-syntax" }
+rustyline = "15.0.0"

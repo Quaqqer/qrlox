@@ -15,7 +15,4 @@ default-members = [ "./crates/qrlox-cli" ]
 ariadne = "0.5.0"
 chumsky = "0.9.3"
 clap = { version = "4.5.23", features = [ "derive" ]}
-indoc = "2.0.5"
 logos = "0.15.0"
-platform-dirs = "0.3.0"
-rustyline = "15.0.0"

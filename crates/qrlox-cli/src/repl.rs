@@ -1,14 +1,7 @@
-use crate::{
-    ast::{self, Span},
-    interpreter::{self, Interpreter},
-    lex::Token,
-    parse::{create_report, expr_or_stmt_parser},
-    ARIADNE_CONFIG,
-};
-use chumsky::{prelude::end, Parser};
-use logos::Logos;
+use qrlox_interpreter::Interpreter;
+use qrlox_syntax::ProgramOrExpr;
 
-pub fn repl() {
+pub fn repl(ariadne_config: &ariadne::Config) {
     let appdirs = platform_dirs::AppDirs::new(Some("twlox"), true)
         .expect("Failed to load app directories for platform");
 
@@ -31,44 +24,31 @@ pub fn repl() {
                     eprintln!("Failed to add line to history: {}", e);
                 };
 
-                // Parse
-                let stream = Token::lexer(&line).spanned().map(|(tok, range)| match tok {
-                    Ok(tok) => (tok, ast::Span::new(range)),
-                    Err(()) => (Token::Error, ast::Span::new(range)),
-                });
-                let n_chars = line.chars().count();
-                let stream = chumsky::Stream::from_iter(Span::new(n_chars..n_chars), stream);
-                let (ast, errors) = expr_or_stmt_parser()
-                    .then_ignore(end())
-                    .parse_recovery(stream);
-
-                // Check if parsing was correct
-                let ast = match (ast, &errors[..]) {
+                // Parse program
+                let (ast, errs) = qrlox_syntax::parse_expr_or_program(&line, ariadne_config);
+                let ast = match (ast, &errs[..]) {
                     (Some(ast), []) => ast,
-                    (_, errors) => {
-                        for err in errors.iter().map(|e| create_report(e)) {
+                    (_, errs) => {
+                        for err in errs {
                             err.eprint(ariadne::Source::from(&line)).unwrap()
                         }
                         continue;
                     }
                 };
 
-                // Evaluate parsed ast
-                match ast {
-                    crate::parse::ProgramOrExpr::Program(stmts) => {
-                        match interpreter.exec_program(&stmts) {
-                            Ok(()) => {}
-                            Err(err) => create_error_report(&err)
-                                .eprint(ariadne::Source::from(&line))
-                                .unwrap(),
-                        }
+                let res = match ast {
+                    ProgramOrExpr::Program(stmts) => interpreter
+                        .exec_program(&stmts, ariadne_config)
+                        .map(|_| None),
+                    ProgramOrExpr::Expr(expr) => {
+                        interpreter.eval_expr(&expr, ariadne_config).map(Some)
                     }
-                    crate::parse::ProgramOrExpr::Expr(expr) => match interpreter.eval_expr(&expr) {
-                        Ok(value) => println!("{}", value.repr()),
-                        Err(err) => create_error_report(&err)
-                            .eprint(ariadne::Source::from(&line))
-                            .unwrap(),
-                    },
+                };
+
+                match res {
+                    Ok(Some(v)) => println!("{}", v.repr()),
+                    Ok(None) => {}
+                    Err(err) => err.eprint(ariadne::Source::from(&line)).unwrap(),
                 }
             }
             Err(
@@ -85,15 +65,4 @@ pub fn repl() {
 
     std::fs::create_dir_all(&hist_dir).expect("Failed to create directory for history");
     rl.save_history(&hist_file).expect("Failed to save history");
-}
-
-pub fn create_error_report(err: &interpreter::Error) -> ariadne::Report {
-    ariadne::Report::build(ariadne::ReportKind::Error, err.span.range.clone())
-        .with_config(ARIADNE_CONFIG)
-        .with_label(
-            ariadne::Label::new(err.span.range.clone())
-                .with_message(err.message.clone())
-                .with_color(ariadne::Color::Red),
-        )
-        .finish()
 }
