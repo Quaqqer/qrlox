@@ -36,8 +36,22 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
             Token::Nil => spanned(Expr::Nil, span),
         }
         .or(just(Token::LParen)
-            .ignore_then(expression)
+            .ignore_then(expression.clone())
             .then_ignore(just(Token::RParen)));
+
+        let call = primary
+            .clone()
+            .then(
+                just(Token::LParen)
+                    .ignore_then(expression.clone().separated_by(just(Token::Comma)))
+                    .then_ignore(just(Token::RParen))
+                    .map_with_span(|args, span| spanned(args, span))
+                    .repeated(),
+            )
+            .foldl(|lhs, args| {
+                let s = lhs.s.join(args.s);
+                spanned(Expr::Call(Box::new(lhs), args.v), s)
+            });
 
         let unary = recursive(|unary| {
             let not = just(Token::Bang)
@@ -46,7 +60,7 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
             let neg = just(Token::Minus)
                 .ignore_then(unary.clone())
                 .map_with_span(|e, s| spanned(Expr::Neg(Box::new(e)), s));
-            not.or(neg).or(primary.clone())
+            not.or(neg).or(call)
         });
 
         let factor = unary

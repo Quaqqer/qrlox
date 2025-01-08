@@ -1,3 +1,4 @@
+mod native;
 mod value;
 
 use std::collections::HashMap;
@@ -131,6 +132,23 @@ impl InterpreterCtx {
                     );
                 }
                 res
+            }
+            Expr::Call(callable, args) => {
+                let callable = self.eval_expr(callable)?;
+                let mut arg_values = Vec::with_capacity(args.len());
+                for arg in args {
+                    arg_values.push(self.eval_expr(arg)?);
+                }
+                match callable {
+                    Value::Native(native) => {
+                        (native.f)(arg_values, s.clone()).map_err(ControlFlow::Error)?
+                    }
+                    _ => bail!(
+                        s,
+                        "Values of type {} cannot be called",
+                        callable.type_().name()
+                    ),
+                }
             }
         })
     }

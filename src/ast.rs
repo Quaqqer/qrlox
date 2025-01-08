@@ -101,6 +101,7 @@ pub enum Expr<'a> {
     Binary(Box<Spanned<Expr<'a>>>, Binop, Box<Spanned<Expr<'a>>>),
     Assign(&'a str, Box<Spanned<Expr<'a>>>),
     Var(&'a str),
+    Call(Box<Spanned<Expr<'a>>>, Vec<Spanned<Expr<'a>>>),
 }
 
 #[derive(Debug, Clone)]

@@ -1,9 +1,28 @@
-#[derive(Debug, PartialEq, Clone)]
+use std::rc::Rc;
+
+use crate::ast::Span;
+
+use super::Error;
+
+#[derive(Debug, Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
+    Native(Rc<Native>),
+}
+
+pub struct Native {
+    pub name: String,
+    pub arity: usize,
+    pub f: Box<dyn Fn(Vec<Value>, Span) -> Result<Value, Error>>,
+}
+
+impl std::fmt::Debug for Native {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}()", self.name)
+    }
 }
 
 impl Value {
@@ -13,6 +32,7 @@ impl Value {
             Value::Boolean(_) => ValueType::Boolean,
             Value::Number(_) => ValueType::Number,
             Value::String(_) => ValueType::String,
+            Value::Native(_) => ValueType::Function,
         }
     }
 
@@ -25,11 +45,25 @@ impl Value {
             },
             Value::Number(n) => n.to_string(),
             Value::String(s) => "\"".to_string() + s + "\"",
+            Value::Native(_) => "function".to_string(),
         }
     }
 
     pub fn is_truthy(&self) -> bool {
         !matches!(self, Value::Nil | Value::Boolean(false))
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Nil, Value::Nil) => true,
+            (Value::Boolean(lhs), Value::Boolean(rhs)) => lhs == rhs,
+            (Value::Number(lhs), Value::Number(rhs)) => lhs == rhs,
+            (Value::String(lhs), Value::String(rhs)) => lhs == rhs,
+            (Value::Native(lhs), Value::Native(rhs)) => Rc::ptr_eq(&lhs, &rhs),
+            _ => false,
+        }
     }
 }
 
@@ -60,6 +94,7 @@ pub enum ValueType {
     Boolean,
     Number,
     String,
+    Function,
 }
 
 impl ValueType {
@@ -69,6 +104,7 @@ impl ValueType {
             ValueType::Boolean => "boolean",
             ValueType::Number => "number",
             ValueType::String => "string",
+            ValueType::Function => "function",
         }
     }
 }
