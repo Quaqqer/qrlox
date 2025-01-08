@@ -427,6 +427,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "qrlox-cli"
+version = "0.1.0"
+
+[[package]]
+name = "qrlox-macros"
+version = "0.1.0"
+
+[[package]]
+name = "qrlox-syntax"
+version = "0.1.0"
+
+[[package]]
 name = "quote"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"

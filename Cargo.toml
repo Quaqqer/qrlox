@@ -1,12 +1,20 @@
-[package]
-name = "qrlox"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[dependencies]
+resolver = "2"
+
+members = [
+    "./crates/qrlox-interpreter",
+    "./crates/qrlox-syntax",
+    "./crates/qrlox-macros", 
+    "./crates/qrlox-cli",
+]
+
+default-members = [ "./crates/qrlox-cli" ]
+
+[workspace.dependencies]
 ariadne = "0.5.0"
 chumsky = "0.9.3"
-clap = { version = "4.5.23", features = ["derive"] }
+clap = { version = "4.5.23", features = [ "derive" ]}
 indoc = "2.0.5"
 logos = "0.15.0"
 platform-dirs = "0.3.0"

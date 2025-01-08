@@ -1,0 +1,13 @@
+[package]
+name = "qrlox"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ariadne.workspace = true
+chumsky.workspace = true
+clap.workspace = true
+indoc.workspace = true
+logos.workspace = true
+platform-dirs.workspace = true
+rustyline.workspace = true
