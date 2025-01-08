@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 #[derive(Debug, Clone)]
 pub struct Span {
-    pub range: std::ops::Range<usize>,
+    range: std::ops::Range<usize>,
 }
 
 impl Span {
@@ -16,6 +16,10 @@ impl Span {
         Self {
             range: self.range.start.min(other.range.start)..self.range.end.max(other.range.end),
         }
+    }
+
+    pub fn range(&self) -> &std::ops::Range<usize> {
+        &self.range
     }
 }
 

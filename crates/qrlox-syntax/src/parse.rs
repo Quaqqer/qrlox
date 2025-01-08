@@ -3,27 +3,10 @@ use chumsky::{error::Simple, Parser};
 
 use crate::ast::{self, spanned, Binop, Stmt};
 use crate::ast::{Expr, Spanned};
-use crate::lex::Token;
-use crate::ARIADNE_CONFIG;
-
-pub enum ProgramOrExpr<'a> {
-    Program(Vec<Spanned<Stmt<'a>>>),
-    Expr(Spanned<Expr<'a>>),
-}
+use crate::token::Token;
+use crate::ProgramOrExpr;
 
 type Error<'a> = Simple<Token<'a>, ast::Span>;
-
-pub fn create_report<'a>(err: &'a Simple<Token<'_>, ast::Span>) -> ariadne::Report<'a> {
-    ariadne::Report::build(ariadne::ReportKind::Error, err.span().range)
-        .with_config(ARIADNE_CONFIG)
-        .with_message(err.to_string())
-        .with_label(
-            ariadne::Label::new(err.span().range)
-                .with_message(err.reason().to_string())
-                .with_color(ariadne::Color::Red),
-        )
-        .finish()
-}
 
 pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Error<'a>> {
     recursive(|expression| {
@@ -45,7 +28,7 @@ pub fn expr_parser<'a>() -> impl Parser<Token<'a>, Spanned<Expr<'a>>, Error = Er
                 just(Token::LParen)
                     .ignore_then(expression.clone().separated_by(just(Token::Comma)))
                     .then_ignore(just(Token::RParen))
-                    .map_with_span(|args, span| spanned(args, span))
+                    .map_with_span(spanned)
                     .repeated(),
             )
             .foldl(|lhs, args| {
@@ -167,7 +150,7 @@ fn expr_stmt<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a
         .map_with_span(|expr, span| spanned(Stmt::Expr(expr), span))
 }
 
-pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
+fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Error<'a>> {
     recursive(|stmt_parser| {
         let print = just(Token::Print)
             .ignore_then(expr_parser())
@@ -262,13 +245,15 @@ pub fn stmt_parser<'a>() -> impl Parser<Token<'a>, Spanned<Stmt<'a>>, Error = Er
     })
 }
 
-pub fn expr_or_stmt_parser<'a>() -> impl Parser<Token<'a>, ProgramOrExpr<'a>, Error = Error<'a>> {
+pub(crate) fn expr_or_program_parser<'a>(
+) -> impl Parser<Token<'a>, ProgramOrExpr<'a>, Error = Error<'a>> {
     expr_parser()
         .map(ProgramOrExpr::Expr)
         .or(program_parser().map(ProgramOrExpr::Program))
         .then_ignore(end())
 }
 
-pub fn program_parser<'a>() -> impl Parser<Token<'a>, Vec<Spanned<Stmt<'a>>>, Error = Error<'a>> {
+pub(crate) fn program_parser<'a>(
+) -> impl Parser<Token<'a>, Vec<Spanned<Stmt<'a>>>, Error = Error<'a>> {
     stmt_parser().repeated().then_ignore(end())
 }
