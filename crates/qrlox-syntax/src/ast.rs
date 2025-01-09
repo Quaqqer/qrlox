@@ -118,6 +118,7 @@ pub enum Expr {
     Assign(Rc<String>, Box<Spanned<Expr>>),
     Var(Rc<String>),
     Call(Box<Spanned<Expr>>, Vec<Spanned<Expr>>),
+    Fun(Vec<Spanned<String>>, Vec<Spanned<Stmt>>),
 }
 
 #[derive(Debug, Clone)]
@@ -143,6 +144,6 @@ pub enum Stmt {
     },
     Break,
     Continue,
-    FunDecl(Rc<String>, Vec<Spanned<Rc<String>>>, Vec<Spanned<Stmt>>),
+    FunDecl(Rc<String>, Vec<Spanned<String>>, Vec<Spanned<Stmt>>),
     Return(Spanned<Expr>),
 }

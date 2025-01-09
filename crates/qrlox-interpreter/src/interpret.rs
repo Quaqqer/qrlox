@@ -217,6 +217,10 @@ impl InterpreterCtx {
                     ),
                 }
             }
+            Expr::Fun(params, body) => Value::Function(Rc::new(Function {
+                params: params.iter().map(|spanned| spanned.v.clone()).collect(),
+                body: body.clone(),
+            })),
         })
     }
 
@@ -381,10 +385,7 @@ impl InterpreterCtx {
                 self.declare(
                     name.as_ref().clone(),
                     Value::Function(Rc::new(Function {
-                        params: params
-                            .iter()
-                            .map(|spanned| spanned.v.as_ref().clone())
-                            .collect(),
+                        params: params.iter().map(|spanned| spanned.v.clone()).collect(),
                         body: body.clone(),
                     })),
                 );
