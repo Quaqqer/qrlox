@@ -40,7 +40,16 @@ where
 }
 
 pub fn create_std() -> Vec<Native> {
-    vec![clock()]
+    vec![
+        clock(),
+        sin(),
+        cos(),
+        tan(),
+        asin(),
+        acos(),
+        atan(),
+        atan2(),
+    ]
 }
 
 #[interpreter_native]
@@ -49,4 +58,39 @@ fn clock() -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("Time before unix epoch?!")
         .as_secs_f64()
+}
+
+#[interpreter_native]
+fn sin(v: f64) -> f64 {
+    v.sin()
+}
+
+#[interpreter_native]
+fn cos(v: f64) -> f64 {
+    v.cos()
+}
+
+#[interpreter_native]
+fn tan(v: f64) -> f64 {
+    v.tan()
+}
+
+#[interpreter_native]
+fn asin(v: f64) -> f64 {
+    v.asin()
+}
+
+#[interpreter_native]
+fn acos(v: f64) -> f64 {
+    v.acos()
+}
+
+#[interpreter_native]
+fn atan(v: f64) -> f64 {
+    v.atan()
+}
+
+#[interpreter_native]
+fn atan2(y: f64, x: f64) -> f64 {
+    f64::atan2(y, x)
 }

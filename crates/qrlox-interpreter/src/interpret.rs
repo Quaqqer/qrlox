@@ -21,7 +21,7 @@ macro_rules! err {
 
 pub(crate) use {bail, err};
 
-pub(crate) struct InterpreterCtx {
+pub struct InterpreterCtx {
     globals: HashMap<String, Value>,
     environments: Vec<Vec<HashMap<String, Value>>>,
 }
