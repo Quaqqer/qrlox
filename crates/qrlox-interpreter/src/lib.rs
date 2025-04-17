@@ -20,7 +20,7 @@ pub struct Interpreter<World>
 where
     World: InterpreterWorld,
 {
-    ctx: InterpreterCtx<World>,
+    pub ctx: InterpreterCtx<World>,
 }
 
 impl<World> Interpreter<World>

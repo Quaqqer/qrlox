@@ -28,7 +28,7 @@ where
 {
     globals: HashMap<String, Value>,
     environments: Vec<Vec<HashMap<String, Value>>>,
-    world: World,
+    pub world: World,
 }
 
 pub enum ControlFlow {
@@ -321,7 +321,12 @@ where
             }
             Stmt::Print(expr) => {
                 let v = self.eval_expr(expr)?;
-                self.world.println(&v.repr());
+
+                if let Value::String(s) = v {
+                    self.world.println(&s);
+                } else {
+                    self.world.println(&v.repr());
+                }
             }
             Stmt::VarDecl(var, expr) => {
                 let v = self.eval_expr(expr)?;
