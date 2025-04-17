@@ -3,7 +3,7 @@ use qrlox_syntax::ast::Span;
 
 use crate::{
     cast::Cast,
-    interpret::{err, InterpreterCtx},
+    interpret::err,
     value::{Native, Value},
     Error,
 };

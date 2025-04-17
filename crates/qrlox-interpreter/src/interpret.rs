@@ -134,6 +134,7 @@ where
         res
     }
 
+    #[allow(unused)]
     fn env(&self) -> &Vec<HashMap<String, Value>> {
         self.environments.last().unwrap()
     }

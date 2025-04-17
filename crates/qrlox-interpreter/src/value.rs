@@ -18,6 +18,7 @@ pub enum Value {
 
 pub struct Native {
     pub name: String,
+    #[allow(clippy::type_complexity)]
     pub f: Box<dyn Fn(&mut dyn InterpreterWorld, &Span, Vec<Value>) -> Result<Value, Error>>,
 }
 
