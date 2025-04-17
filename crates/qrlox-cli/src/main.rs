@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 mod repl;
+mod world;
 
 use clap::Parser;
 use qrlox_interpreter::Interpreter;
+use world::CliWorld;
 
 #[derive(Parser, Clone)]
 #[command(version, author, about)]
@@ -32,7 +34,7 @@ pub fn main() {
             }
         };
 
-        let mut interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new(CliWorld);
         let res = interpreter.exec_program(&ast, &ariadne_config);
 
         match res {

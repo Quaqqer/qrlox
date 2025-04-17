@@ -1,6 +1,8 @@
 use qrlox_interpreter::Interpreter;
 use qrlox_syntax::ProgramOrExpr;
 
+use crate::world::CliWorld;
+
 pub fn repl(ariadne_config: &ariadne::Config) {
     let appdirs = platform_dirs::AppDirs::new(Some("twlox"), true)
         .expect("Failed to load app directories for platform");
@@ -13,7 +15,7 @@ pub fn repl(ariadne_config: &ariadne::Config) {
     // Attempt to load history
     let _ = rl.load_history(&hist_file);
 
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new(CliWorld);
 
     loop {
         let readline = rl.readline("> ");

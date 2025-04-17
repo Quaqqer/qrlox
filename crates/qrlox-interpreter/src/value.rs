@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use qrlox_syntax::{ast::Span, Spanned, Stmt};
 
-use crate::interpret::InterpreterCtx;
+use crate::world::InterpreterWorld;
 
 use super::Error;
 
@@ -18,7 +18,7 @@ pub enum Value {
 
 pub struct Native {
     pub name: String,
-    pub f: Box<dyn Fn(&mut InterpreterCtx, &Span, Vec<Value>) -> Result<Value, Error>>,
+    pub f: Box<dyn Fn(&mut dyn InterpreterWorld, &Span, Vec<Value>) -> Result<Value, Error>>,
 }
 
 #[derive(Debug)]

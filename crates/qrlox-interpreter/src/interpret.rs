@@ -4,6 +4,7 @@ use qrlox_syntax::{ast::Span, Binop, Expr, Spanned, Stmt};
 
 use crate::{
     value::{Function, Native, Value},
+    world::InterpreterWorld,
     Error,
 };
 
@@ -21,9 +22,13 @@ macro_rules! err {
 
 pub(crate) use {bail, err};
 
-pub struct InterpreterCtx {
+pub struct InterpreterCtx<World>
+where
+    World: InterpreterWorld,
+{
     globals: HashMap<String, Value>,
     environments: Vec<Vec<HashMap<String, Value>>>,
+    world: World,
 }
 
 pub enum ControlFlow {
@@ -33,12 +38,16 @@ pub enum ControlFlow {
     Return(Value),
 }
 
-impl InterpreterCtx {
+impl<World> InterpreterCtx<World>
+where
+    World: InterpreterWorld,
+{
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(world: World) -> Self {
         Self {
             globals: HashMap::new(),
             environments: vec![Vec::new()],
+            world,
         }
     }
 
@@ -58,6 +67,7 @@ impl InterpreterCtx {
         let Self {
             globals,
             environments,
+            ..
         } = self;
 
         for scope in std::iter::once(globals)
@@ -76,6 +86,7 @@ impl InterpreterCtx {
         let Self {
             globals,
             environments,
+            ..
         } = self;
 
         for scope in std::iter::once(globals)
@@ -178,7 +189,7 @@ impl InterpreterCtx {
                 }
                 match callable_v {
                     Value::Native(native) => {
-                        (native.f)(self, &s, arg_values).map_err(ControlFlow::Error)?
+                        (native.f)(&mut self.world, &s, arg_values).map_err(ControlFlow::Error)?
                     }
                     Value::Function(fun) => self.with_env(|ctx| -> Result<Value, ControlFlow> {
                         if arg_values.len() != fun.params.len() {
@@ -310,7 +321,7 @@ impl InterpreterCtx {
             }
             Stmt::Print(expr) => {
                 let v = self.eval_expr(expr)?;
-                println!("{}", v.repr());
+                self.world.println(&v.repr());
             }
             Stmt::VarDecl(var, expr) => {
                 let v = self.eval_expr(expr)?;

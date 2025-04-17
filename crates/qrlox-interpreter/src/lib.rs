@@ -2,27 +2,35 @@ pub mod cast;
 mod interpret;
 mod native;
 pub mod value;
+pub mod world;
 
 use interpret::{err, ControlFlow, InterpreterCtx};
 use native::create_std;
 use value::Value;
 
 use qrlox_syntax::ast::{Expr, Span, Spanned, Stmt};
+use world::InterpreterWorld;
 
 pub struct Error {
     pub message: String,
     pub span: Span,
 }
 
-pub struct Interpreter {
-    ctx: InterpreterCtx,
+pub struct Interpreter<World>
+where
+    World: InterpreterWorld,
+{
+    ctx: InterpreterCtx<World>,
 }
 
-impl Interpreter {
+impl<World> Interpreter<World>
+where
+    World: InterpreterWorld,
+{
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(world: World) -> Self {
         let mut interpreter = Self {
-            ctx: InterpreterCtx::new(),
+            ctx: InterpreterCtx::new(world),
         };
 
         for native in create_std() {

@@ -85,7 +85,7 @@ pub fn expand_native_function(fn_: syn::ItemFn) -> syn::Result<proc_macro2::Toke
             Native {
                 name: #name_s.to_string(),
                 f: Box::new(
-                    |interpreter: &mut InterpreterCtx, span: &Span, mut args: Vec<Value>| {
+                    |interpreter: &mut dyn crate::world::InterpreterWorld, span: &Span, mut args: Vec<Value>| {
                         if args.len() != #normal_params {
                             return Err(err!(span, "Function expected {} arguments but got {}", #normal_params, args.len()));
                         }
