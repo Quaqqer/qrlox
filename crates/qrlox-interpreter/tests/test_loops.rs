@@ -1,5 +1,7 @@
+mod common;
+
+use common::test_io;
 use indoc::indoc;
-use qrlox_tests::test_io;
 
 #[test]
 fn test_for() {

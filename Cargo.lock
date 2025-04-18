@@ -446,6 +446,8 @@ name = "qrlox-interpreter"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "indoc",
+ "pretty_assertions",
  "qrlox-macros",
  "qrlox-syntax",
 ]
@@ -466,17 +468,6 @@ dependencies = [
  "ariadne",
  "chumsky",
  "logos",
-]
-
-[[package]]
-name = "qrlox-tests"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "indoc",
- "pretty_assertions",
- "qrlox-interpreter",
- "qrlox-syntax",
 ]
 
 [[package]]

@@ -1,4 +1,6 @@
-use qrlox_tests::test_io;
+mod common;
+
+use common::test_io;
 
 #[test]
 fn test_test_io() {

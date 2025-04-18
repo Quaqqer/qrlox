@@ -7,3 +7,7 @@ edition = "2021"
 ariadne.workspace = true
 qrlox-macros = { version = "0.1.0", path = "../qrlox-macros" }
 qrlox-syntax = { version = "0.1.0", path = "../qrlox-syntax" }
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+indoc = "2.0.6"
