@@ -40,11 +40,11 @@ where
         interpreter
     }
 
-    pub fn exec_stmt<'a, 'b>(
-        &'a mut self,
-        stmt: &'a Spanned<Stmt>,
-        ariadne_config: &'a ariadne::Config,
-    ) -> Result<(), Box<ariadne::Report<'b>>> {
+    pub fn exec_stmt(
+        &mut self,
+        stmt: &Spanned<Stmt>,
+        ariadne_config: &ariadne::Config,
+    ) -> Result<(), Box<ariadne::Report<'static>>> {
         self.ctx
             .exec_stmt(stmt)
             .map_err(|e| match e {

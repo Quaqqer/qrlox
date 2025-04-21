@@ -167,17 +167,17 @@ where
             }
             Expr::Binary(lhs, op, rhs) => self.eval_binop(expr.s.clone(), lhs, op, rhs)?,
             Expr::Var(var) => self
-                .lookup(var)
+                .lookup(var.v.as_str())
                 .ok_or(())
-                .or_else(|_| bail!(s, "No variable '{}' has been declared", var))?,
+                .or_else(|_| bail!(s, "No variable '{}' has been declared", var.v.as_str()))?,
             Expr::Assign(var, expr) => {
                 let res = self.eval_expr(expr)?;
-                let assigned = self.assign(var, res.clone());
+                let assigned = self.assign(var.v.as_str(), res.clone());
                 if !assigned {
                     bail!(
                         s,
                         "Could not assigned to '{}', it has not been declared.",
-                        var
+                        var.v.as_str()
                     );
                 }
                 res
@@ -230,7 +230,7 @@ where
                 }
             }
             Expr::Fun(params, body) => Value::Function(Rc::new(Function {
-                params: params.iter().map(|spanned| spanned.v.clone()).collect(),
+                params: params.iter().map(|spanned| spanned.v.to_string()).collect(),
                 body: body.clone(),
             })),
         })
@@ -331,7 +331,7 @@ where
             }
             Stmt::VarDecl(var, expr) => {
                 let v = self.eval_expr(expr)?;
-                self.declare(var.to_string(), v);
+                self.declare(var.v.to_string(), v);
             }
             Stmt::Block(stmts) => {
                 self.scoped(|ctx| -> Result<_, ControlFlow> {
@@ -400,9 +400,9 @@ where
             Stmt::Continue => return Err(ControlFlow::Continue),
             Stmt::FunDecl(name, params, body) => {
                 self.declare(
-                    name.as_ref().clone(),
+                    name.v.to_string(),
                     Value::Function(Rc::new(Function {
-                        params: params.iter().map(|spanned| spanned.v.clone()).collect(),
+                        params: params.iter().map(|spanned| spanned.v.to_string()).collect(),
                         body: body.clone(),
                     })),
                 );

@@ -15,6 +15,7 @@ pub fn expr_parser<'a>(
     stmt_parser: impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> + Clone + 'a,
     expr_parser: impl Parser<Token<'a>, Spanned<Expr>, Error = Error<'a>> + Clone + 'a,
 ) -> impl Parser<Token<'a>, Spanned<Expr>, Error = Error<'a>> {
+    let var = ident().map_with_span(|ident, s| spanned(Expr::Var(ident), s));
     let true_ = just(Token::True).map_with_span(|_, s| spanned(Expr::Boolean(true), s));
     let false_ = just(Token::False).map_with_span(|_, s| spanned(Expr::Boolean(false), s));
     let nil = just(Token::Nil).map_with_span(|_, s| spanned(Expr::Nil, s));
@@ -23,11 +24,7 @@ pub fn expr_parser<'a>(
         .then_ignore(just(Token::RParen));
     let fun = just(Token::Fun)
         .ignore_then(just(Token::LParen))
-        .ignore_then(
-            select!(Token::Identifier(ident)=>ident.to_string())
-                .map_with_span(spanned)
-                .separated_by(just(Token::Comma)),
-        )
+        .ignore_then(ident().separated_by(just(Token::Comma)))
         .then_ignore(just(Token::RParen))
         .then_ignore(just(Token::LBrace))
         .then(stmt_parser.clone().repeated())
@@ -37,8 +34,8 @@ pub fn expr_parser<'a>(
     let primary = select! { |span|
         Token::Number(s) => spanned(Expr::Number(s.parse().unwrap()), span),
         Token::String(s) => spanned(Expr::String(Rc::new(s.to_string())), span),
-        Token::Identifier(i) => spanned(Expr::Var(Rc::new(i.to_string())), span),
     }
+    .or(var)
     .or(true_)
     .or(false_)
     .or(nil)
@@ -147,26 +144,32 @@ pub fn expr_parser<'a>(
             spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
         });
 
-    let assignment = select!(Token::Identifier(i) => i)
+    let assignment = ident()
         .then_ignore(just(Token::Eq))
         .then(or.clone())
-        .map_with_span(|(var, expr), span| {
-            spanned(Expr::Assign(Rc::new(var.to_string()), Box::new(expr)), span)
-        })
+        .map_with_span(|(ident, expr), span| spanned(Expr::Assign(ident, Box::new(expr)), span))
         .or(or);
 
     assignment
+}
+
+fn ident<'a>() -> impl Parser<Token<'a>, Spanned<Rc<String>>, Error = Error<'a>> {
+    select! {
+        Token::Identifier(ident) => ident,
+    }
+    .map_with_span(|name, s| spanned(Rc::new(name.to_string()), s))
+    .labelled("identifier")
 }
 
 fn var_decl<'a>(
     expr_parser: impl Parser<Token<'a>, Spanned<Expr>, Error = Error<'a>>,
 ) -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> {
     just(Token::Var)
-        .ignore_then(select! {Token::Identifier(ident) => ident})
+        .ignore_then(ident())
         .then_ignore(just(Token::Eq))
         .then(expr_parser)
         .then_ignore(just(Token::Semicolon))
-        .map_with_span(|(var, expr), s| spanned(Stmt::VarDecl(Rc::new(var.to_string()), expr), s))
+        .map_with_span(|(ident, expr), s| spanned(Stmt::VarDecl(ident, expr), s))
 }
 
 fn expr_stmt<'a>(
@@ -259,20 +262,14 @@ fn stmt_parser<'a>(
         .map_with_span(|(), s| spanned(Stmt::Continue, s));
 
     let fun = just(Token::Fun)
-        .ignore_then(select! {Token::Identifier(ident)=>ident})
+        .ignore_then(ident())
         .then_ignore(just(Token::LParen))
-        .then(
-            select! {Token::Identifier(ident)=>ident.to_string()}
-                .map_with_span(spanned)
-                .separated_by(just(Token::Comma)),
-        )
+        .then(ident().separated_by(just(Token::Comma)))
         .then_ignore(just(Token::RParen))
         .then_ignore(just(Token::LBrace))
         .then(stmt_parser.clone().repeated())
         .then_ignore(just(Token::RBrace))
-        .map_with_span(|((name, params), body), s| {
-            spanned(Stmt::FunDecl(Rc::new(name.to_string()), params, body), s)
-        });
+        .map_with_span(|((ident, params), body), s| spanned(Stmt::FunDecl(ident, params, body), s));
 
     let return_ = just(Token::Return)
         .ignore_then(expr_parser.clone())

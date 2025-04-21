@@ -442,6 +442,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "qrlox-compiler"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "qrlox-syntax",
+]
+
+[[package]]
 name = "qrlox-interpreter"
 version = "0.1.0"
 dependencies = [

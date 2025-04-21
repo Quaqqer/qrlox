@@ -1,0 +1,8 @@
+[package]
+name = "qrlox-compiler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+qrlox-syntax = { version = "0.1.0", path = "../qrlox-syntax" }
+ariadne.workspace = true

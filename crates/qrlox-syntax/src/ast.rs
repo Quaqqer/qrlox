@@ -21,6 +21,10 @@ impl Span {
     pub fn range(&self) -> &std::ops::Range<usize> {
         &self.range
     }
+
+    pub fn spanned<T>(&self, v: T) -> Spanned<T> {
+        Spanned { v, s: self.clone() }
+    }
 }
 
 impl chumsky::Span for Span {
@@ -60,6 +64,13 @@ pub fn spanned<T>(v: T, span: Span) -> Spanned<T> {
 }
 
 impl<T> Spanned<T> {
+    pub fn as_ref(&self) -> Spanned<&T> {
+        Spanned {
+            s: self.s.clone(),
+            v: &self.v,
+        }
+    }
+
     pub fn map<U, F>(self, f: F) -> Spanned<U>
     where
         F: FnOnce(T) -> U,
@@ -70,6 +81,8 @@ impl<T> Spanned<T> {
         }
     }
 }
+
+type Ident = Spanned<Rc<String>>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Binop {
@@ -115,17 +128,17 @@ pub enum Expr {
     Not(Box<Spanned<Expr>>),
     Neg(Box<Spanned<Expr>>),
     Binary(Box<Spanned<Expr>>, Binop, Box<Spanned<Expr>>),
-    Assign(Rc<String>, Box<Spanned<Expr>>),
-    Var(Rc<String>),
+    Assign(Ident, Box<Spanned<Expr>>),
+    Var(Ident),
     Call(Box<Spanned<Expr>>, Vec<Spanned<Expr>>),
-    Fun(Vec<Spanned<String>>, Vec<Spanned<Stmt>>),
+    Fun(Vec<Ident>, Vec<Spanned<Stmt>>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(Spanned<Expr>),
     Print(Spanned<Expr>),
-    VarDecl(Rc<String>, Spanned<Expr>),
+    VarDecl(Ident, Spanned<Expr>),
     Block(Vec<Spanned<Stmt>>),
     If {
         cond: Spanned<Expr>,
@@ -144,6 +157,6 @@ pub enum Stmt {
     },
     Break,
     Continue,
-    FunDecl(Rc<String>, Vec<Spanned<String>>, Vec<Spanned<Stmt>>),
+    FunDecl(Ident, Vec<Ident>, Vec<Spanned<Stmt>>),
     Return(Spanned<Expr>),
 }

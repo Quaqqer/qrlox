@@ -7,6 +7,7 @@ members = [
     "./crates/qrlox-syntax",
     "./crates/qrlox-macros",
     "./crates/qrlox-cli",
+    "./crates/qrlox-compiler",
 ]
 
 default-members = ["./crates/qrlox-cli"]
