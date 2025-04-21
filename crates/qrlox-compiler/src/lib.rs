@@ -6,13 +6,20 @@ use qrlox_syntax::{
 };
 
 #[derive(Debug)]
-pub struct Error {
-    message: String,
-    span: Span,
+pub enum Error {
+    Message {
+        message: String,
+        span: Span,
+    },
+    AlreadyDeclared {
+        message: String,
+        span: Span,
+        previous_declaration: Span,
+    },
 }
 
 struct Scope {
-    variables: HashMap<String, usize>,
+    variables: HashMap<String, (usize, Span)>,
     depth: usize,
 }
 
@@ -61,14 +68,35 @@ fn error_report<'a>(
     err: &'a Error,
     ariadne_config: &'a ariadne::Config,
 ) -> ariadne::Report<'static> {
-    ariadne::Report::build(ariadne::ReportKind::Error, err.span.range().clone())
-        .with_config(ariadne_config.with_index_type(ariadne::IndexType::Byte))
-        .with_label(
-            ariadne::Label::new(err.span.range().clone())
-                .with_message(err.message.clone())
-                .with_color(ariadne::Color::Red),
-        )
-        .finish()
+    match err {
+        Error::Message { message, span } => {
+            ariadne::Report::build(ariadne::ReportKind::Error, span.range().clone())
+                .with_config(ariadne_config.with_index_type(ariadne::IndexType::Byte))
+                .with_label(
+                    ariadne::Label::new(span.range().clone())
+                        .with_message(message.clone())
+                        .with_color(ariadne::Color::Red),
+                )
+                .finish()
+        }
+        Error::AlreadyDeclared {
+            message,
+            span,
+            previous_declaration,
+        } => ariadne::Report::build(ariadne::ReportKind::Error, span.range().clone())
+            .with_message(message.clone())
+            .with_config(ariadne_config.with_index_type(ariadne::IndexType::Byte))
+            .with_label(
+                ariadne::Label::new(previous_declaration.range().clone())
+                    .with_message("First declared here."),
+            )
+            .with_label(
+                ariadne::Label::new(span.range().clone())
+                    .with_message("Declared here.")
+                    .with_color(ariadne::Color::Red),
+            )
+            .finish(),
+    }
 }
 
 impl Resolver {
@@ -202,19 +230,22 @@ impl Resolver {
 
     fn declare(&mut self, name: &Spanned<Rc<String>>) -> Result<Ident, Error> {
         if let Some(scope) = self.environment_mut().scopes.last_mut() {
-            if scope.variables.contains_key(name.v.as_str()) {
-                Err(Error {
+            if let Some((_, previous_declaration)) = scope.variables.get(name.v.as_str()) {
+                Err(Error::AlreadyDeclared {
                     message: format!(
                         "Variable '{}' has already been declared in this scope",
                         name.v.as_str()
                     ),
                     span: name.s.clone(),
+                    previous_declaration: previous_declaration.clone(),
                 })
             } else {
                 let d = scope.depth;
                 scope.depth += 1;
 
-                scope.variables.insert(name.v.to_string(), d);
+                scope
+                    .variables
+                    .insert(name.v.to_string(), (d, name.s.clone()));
 
                 Ok(Ident::Local(d))
             }
@@ -225,7 +256,7 @@ impl Resolver {
 
     fn resolve(&self, name: &Spanned<Rc<String>>) -> Result<Ident, Error> {
         for scope in self.environment().scopes.iter().rev() {
-            if let Some(d) = scope.variables.get(name.v.as_str()) {
+            if let Some((d, _)) = scope.variables.get(name.v.as_str()) {
                 return Ok(Ident::Local(*d));
             }
         }
