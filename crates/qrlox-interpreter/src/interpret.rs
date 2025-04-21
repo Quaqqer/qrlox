@@ -266,6 +266,7 @@ where
             },
             Binop::Add => match (&lhs, &rhs) {
                 (Value::Number(lhs), Value::Number(rhs)) => Some(Value::Number(lhs + rhs)),
+                (Value::String(lhs), Value::String(rhs)) => Some(Value::String(lhs.clone() + rhs)),
                 _ => None,
             },
             Binop::Sub => match (&lhs, &rhs) {
