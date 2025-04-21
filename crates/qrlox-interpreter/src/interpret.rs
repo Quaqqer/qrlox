@@ -1,10 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
-use qrlox_compiler::{Binop, Expr, Ident, Stmt};
+use qrlox_compiler::{Binop, ClassDecl, Expr, FunDecl, Ident, Stmt};
 use qrlox_syntax::{ast::Span, Spanned};
 
 use crate::{
-    value::{Function, Native, Value},
+    value::{Function, Native, Object, Value},
     world::InterpreterWorld,
     Error,
 };
@@ -145,7 +145,7 @@ where
                 if let Ident::Global(name) = var {
                     bail!(s, "No global variable '{}' has been declared", name);
                 } else {
-                    bail!(s, "Unexpected error");
+                    bail!(s, "Variable has not been initialized yet.");
                 }
             })?,
             Expr::Assign(var, expr) => {
@@ -159,7 +159,9 @@ where
                             name
                         );
                     } else {
-                        bail!(s, "Unexpected error");
+                        unreachable!(
+                            "A variable that hasn't been declared yet cannot be assigned to."
+                        );
                     }
                 }
                 res
@@ -390,15 +392,29 @@ where
             }
             Stmt::Break => return Err(ControlFlow::Break),
             Stmt::Continue => return Err(ControlFlow::Continue),
-            Stmt::FunDecl(ident, n_params, body) => {
+            Stmt::FunDecl(FunDecl {
+                name,
+                n_params,
+                body,
+            }) => {
                 self.declare(
-                    ident,
+                    name,
                     Value::Function(Rc::new(Function {
                         n_params: *n_params,
                         body: body.clone(),
                     })),
                 );
             }
+            Stmt::ClassDecl(ClassDecl {
+                class_name,
+                ident,
+                functions,
+            }) => self.declare(
+                ident,
+                Value::Object(Object {
+                    class_name: class_name.clone(),
+                }),
+            ),
             Stmt::Return(expr) => {
                 if self.environments.len() == 1 {
                     bail!(s, "Tried to return outside of a function call.")

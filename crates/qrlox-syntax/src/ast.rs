@@ -157,6 +157,20 @@ pub enum Stmt {
     },
     Break,
     Continue,
-    FunDecl(Ident, Vec<Ident>, Vec<Spanned<Stmt>>),
+    FunDecl(FunDecl),
+    ClassDecl(ClassDecl),
     Return(Spanned<Expr>),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: Ident,
+    pub params: Vec<Ident>,
+    pub body: Vec<Spanned<Stmt>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClassDecl {
+    pub ident: Ident,
+    pub functions: Vec<Spanned<FunDecl>>,
 }

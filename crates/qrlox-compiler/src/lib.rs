@@ -3,6 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use qrlox_syntax::{
     Spanned,
     ast::{self, Span},
+    spanned,
 };
 
 #[derive(Debug)]
@@ -119,7 +120,9 @@ impl Resolver {
     }
 
     fn resolve_stmt(&mut self, stmt: &Spanned<ast::Stmt>) -> Result<Spanned<Stmt>, Error> {
-        Ok(stmt.s.spanned(match &stmt.v {
+        let s = stmt.s.clone();
+
+        Ok(s.spanned(match &stmt.v {
             ast::Stmt::Expr(expr) => Stmt::Expr(self.resolve_expr(expr)?),
             ast::Stmt::Print(expr) => Stmt::Print(self.resolve_expr(expr)?),
             ast::Stmt::VarDecl(ident, expr) => {
@@ -170,24 +173,40 @@ impl Resolver {
             },
             ast::Stmt::Break => Stmt::Break,
             ast::Stmt::Continue => Stmt::Continue,
-            ast::Stmt::FunDecl(ident, parameters, stmts) => {
-                let ident = self.declare(ident)?;
+            ast::Stmt::FunDecl(fun_decl) => Stmt::FunDecl(self.resolve_fun_decl(fun_decl)?),
+            ast::Stmt::ClassDecl(ast::ClassDecl { ident, functions }) => {
+                let resolved_ident = self.declare(ident)?;
+                let mut resolved_functions = Vec::new();
 
-                self.in_closure(|resolver| {
-                    let mut params = Vec::new();
-                    for parameter in parameters {
-                        params.push(resolver.declare(parameter)?);
-                    }
+                for fun in functions {
+                    resolved_functions.push(spanned(self.resolve_fun_decl(&fun.v)?, fun.s.clone()));
+                }
 
-                    Ok(Stmt::FunDecl(
-                        ident,
-                        parameters.len(),
-                        resolver.resolve_stmts(stmts)?,
-                    ))
-                })?
+                Stmt::ClassDecl(ClassDecl {
+                    class_name: ident.v.clone(),
+                    ident: resolved_ident,
+                    functions: resolved_functions,
+                })
             }
             ast::Stmt::Return(expr) => Stmt::Return(self.resolve_expr(expr)?),
         }))
+    }
+
+    fn resolve_fun_decl(&mut self, fun: &ast::FunDecl) -> Result<FunDecl, Error> {
+        let ident = self.declare(&fun.name)?;
+
+        self.in_closure(|resolver| {
+            let mut declared_params = Vec::new();
+            for param in &fun.params {
+                declared_params.push(resolver.declare(param)?);
+            }
+
+            Ok(FunDecl {
+                name: ident,
+                n_params: declared_params.len(),
+                body: resolver.resolve_stmts(&fun.body)?,
+            })
+        })
     }
 
     fn resolve_expr(&mut self, expr: &Spanned<ast::Expr>) -> Result<Spanned<Expr>, Error> {
@@ -361,6 +380,21 @@ pub enum Stmt {
     },
     Break,
     Continue,
-    FunDecl(Ident, usize, Vec<Spanned<Stmt>>),
+    FunDecl(FunDecl),
+    ClassDecl(ClassDecl),
     Return(Spanned<Expr>),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: Ident,
+    pub n_params: usize,
+    pub body: Vec<Spanned<Stmt>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClassDecl {
+    pub class_name: Rc<String>,
+    pub ident: Ident,
+    pub functions: Vec<Spanned<FunDecl>>,
 }

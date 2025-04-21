@@ -3,7 +3,7 @@ use std::rc::Rc;
 use chumsky::prelude::*;
 use chumsky::{error::Simple, Parser};
 
-use crate::ast::{self, spanned, Binop, Stmt};
+use crate::ast::{self, spanned, Binop, ClassDecl, FunDecl, Stmt};
 use crate::ast::{Expr, Spanned};
 use crate::token::Token;
 use crate::ProgramOrExpr;
@@ -172,6 +172,31 @@ fn var_decl<'a>(
         .map_with_span(|(ident, expr), s| spanned(Stmt::VarDecl(ident, expr), s))
 }
 
+fn fun_decl<'a>(
+    stmt_parser: impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> + Clone + 'a,
+) -> impl Parser<Token<'a>, Spanned<FunDecl>, Error = Error<'a>> {
+    just(Token::Fun)
+        .ignore_then(ident())
+        .then_ignore(just(Token::LParen))
+        .then(ident().separated_by(just(Token::Comma)))
+        .then_ignore(just(Token::RParen))
+        .then_ignore(just(Token::LBrace))
+        .then(stmt_parser.clone().repeated())
+        .then_ignore(just(Token::RBrace))
+        .map_with_span(|((name, params), body), s| spanned(FunDecl { name, params, body }, s))
+}
+
+fn class_decl<'a>(
+    stmt_parser: impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> + Clone + 'a,
+) -> impl Parser<Token<'a>, Spanned<ClassDecl>, Error = Error<'a>> {
+    just(Token::Class)
+        .ignore_then(ident())
+        .then_ignore(just(Token::LBrace))
+        .then(fun_decl(stmt_parser).repeated())
+        .then_ignore(just(Token::RBrace))
+        .map_with_span(|(ident, functions), s| spanned(ClassDecl { ident, functions }, s))
+}
+
 fn expr_stmt<'a>(
     expr_parser: impl Parser<Token<'a>, Spanned<Expr>, Error = Error<'a>>,
 ) -> impl Parser<Token<'a>, Spanned<Stmt>, Error = Error<'a>> {
@@ -261,15 +286,10 @@ fn stmt_parser<'a>(
         .ignored()
         .map_with_span(|(), s| spanned(Stmt::Continue, s));
 
-    let fun = just(Token::Fun)
-        .ignore_then(ident())
-        .then_ignore(just(Token::LParen))
-        .then(ident().separated_by(just(Token::Comma)))
-        .then_ignore(just(Token::RParen))
-        .then_ignore(just(Token::LBrace))
-        .then(stmt_parser.clone().repeated())
-        .then_ignore(just(Token::RBrace))
-        .map_with_span(|((ident, params), body), s| spanned(Stmt::FunDecl(ident, params, body), s));
+    let fun = fun_decl(stmt_parser.clone()).map(|spanned_fun| spanned_fun.map(Stmt::FunDecl));
+
+    let class =
+        class_decl(stmt_parser.clone()).map(|spanned_class| spanned_class.map(Stmt::ClassDecl));
 
     let return_ = just(Token::Return)
         .ignore_then(expr_parser.clone())
@@ -278,6 +298,7 @@ fn stmt_parser<'a>(
 
     print
         .or(var_decl(expr_parser.clone()))
+        .or(class)
         .or(block)
         .or(if_)
         .or(while_)
