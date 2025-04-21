@@ -8,7 +8,8 @@ use interpret::{err, ControlFlow, InterpreterCtx};
 use native::create_std;
 use value::Value;
 
-use qrlox_syntax::ast::{Expr, Span, Spanned, Stmt};
+use qrlox_compiler::{Expr, Stmt};
+use qrlox_syntax::ast::{Span, Spanned};
 use world::InterpreterWorld;
 
 pub struct Error {
@@ -58,11 +59,11 @@ where
             .map_err(|err| Box::new(interpreter_error_report(&err, ariadne_config)))
     }
 
-    pub fn exec_program<'a, 'b>(
-        &'a mut self,
-        stmts: &'a Vec<Spanned<Stmt>>,
-        ariadne_config: &'a ariadne::Config,
-    ) -> Result<(), Box<ariadne::Report<'b>>> {
+    pub fn exec_program(
+        &mut self,
+        stmts: &Vec<Spanned<Stmt>>,
+        ariadne_config: &ariadne::Config,
+    ) -> Result<(), Box<ariadne::Report<'static>>> {
         for stmt in stmts {
             self.exec_stmt(stmt, ariadne_config)?;
         }

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 ariadne.workspace = true
+qrlox-compiler = { version = "0.1.0", path = "../qrlox-compiler" }
 qrlox-macros = { version = "0.1.0", path = "../qrlox-macros" }
 qrlox-syntax = { version = "0.1.0", path = "../qrlox-syntax" }
 

@@ -1,4 +1,5 @@
 use pretty_assertions::assert_str_eq;
+use qrlox_compiler::resolve_program;
 use qrlox_interpreter::{world::InterpreterWorld, Interpreter};
 use qrlox_syntax::parse_program;
 
@@ -27,12 +28,20 @@ pub fn test_io(program_source: &str, expected_output: &str) {
         panic!();
     };
 
+    let resolved = match resolve_program(&program, &ariadne_config) {
+        Ok(v) => v,
+        Err(err) => {
+            err.eprint(cache.clone()).unwrap();
+            panic!();
+        }
+    };
+
     let world = TestWorld {
         output: String::new(),
     };
     let mut interpreter = Interpreter::new(world);
 
-    let result = interpreter.exec_program(&program, &ariadne_config);
+    let result = interpreter.exec_program(&resolved, &ariadne_config);
 
     match result {
         Ok(_) => {}

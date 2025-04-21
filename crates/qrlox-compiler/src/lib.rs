@@ -48,6 +48,15 @@ pub fn resolve_program(
         .map_err(|err| Box::new(error_report(&err, ariadne_config)))
 }
 
+pub fn resolve_expr(
+    expr: &Spanned<ast::Expr>,
+    ariadne_config: &ariadne::Config,
+) -> Result<Spanned<Expr>, Box<ariadne::Report<'static>>> {
+    Resolver::new()
+        .resolve_expr(expr)
+        .map_err(|err| Box::new(error_report(&err, ariadne_config)))
+}
+
 fn error_report<'a>(
     err: &'a Error,
     ariadne_config: &'a ariadne::Config,
@@ -88,13 +97,17 @@ impl Resolver {
             ast::Stmt::VarDecl(ident, expr) => {
                 Stmt::VarDecl(self.declare(ident)?, self.resolve_expr(expr)?)
             }
-            ast::Stmt::Block(ast_stmts) => self.scoped(|resolver| {
-                let mut stmts = Vec::new();
-                for stmt in ast_stmts.iter() {
-                    stmts.push(resolver.resolve_stmt(stmt)?);
-                }
-                Ok(Stmt::Block(stmts))
-            })?,
+            ast::Stmt::Block(ast_stmts) => {
+                let (popped, stmts) = self.scoped(|resolver| {
+                    let mut stmts = Vec::new();
+                    for stmt in ast_stmts.iter() {
+                        stmts.push(resolver.resolve_stmt(stmt)?);
+                    }
+                    Ok(stmts)
+                })?;
+
+                Stmt::Block(stmts, popped)
+            }
             ast::Stmt::If { cond, then, else_ } => Stmt::If {
                 cond: self.resolve_expr(cond)?,
                 then: Box::new(self.resolve_stmt(then)?),
@@ -129,18 +142,22 @@ impl Resolver {
             },
             ast::Stmt::Break => Stmt::Break,
             ast::Stmt::Continue => Stmt::Continue,
-            ast::Stmt::FunDecl(name, parameters, stmts) => self.in_closure(|resolver| {
-                let mut params = Vec::new();
-                for parameter in parameters {
-                    params.push(resolver.declare(parameter)?);
-                }
+            ast::Stmt::FunDecl(ident, parameters, stmts) => {
+                let ident = self.declare(ident)?;
 
-                Ok(Stmt::FunDecl(
-                    resolver.declare(name)?,
-                    parameters.len(),
-                    resolver.resolve_stmts(stmts)?,
-                ))
-            })?,
+                self.in_closure(|resolver| {
+                    let mut params = Vec::new();
+                    for parameter in parameters {
+                        params.push(resolver.declare(parameter)?);
+                    }
+
+                    Ok(Stmt::FunDecl(
+                        ident,
+                        parameters.len(),
+                        resolver.resolve_stmts(stmts)?,
+                    ))
+                })?
+            }
             ast::Stmt::Return(expr) => Stmt::Return(self.resolve_expr(expr)?),
         }))
     }
@@ -224,8 +241,10 @@ impl Resolver {
         });
     }
 
-    fn exit_scope(&mut self) {
+    fn exit_scope(&mut self) -> usize {
         self.environment_mut().scopes.pop().unwrap();
+
+        self.environment().scopes.last().map_or(0, |s| s.depth)
     }
 
     fn environment(&self) -> &Environment {
@@ -236,11 +255,14 @@ impl Resolver {
         self.environments.last_mut().unwrap()
     }
 
-    fn scoped<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, Error>) -> Result<T, Error> {
+    fn scoped<T>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<T, Error>,
+    ) -> Result<(usize, T), Error> {
         self.enter_scope();
         let res = f(self);
-        self.exit_scope();
-        res
+        let popped = self.exit_scope();
+        res.map(|v| (popped, v))
     }
 
     fn enter_closure(&mut self) {
@@ -288,7 +310,9 @@ pub enum Stmt {
     Expr(Spanned<Expr>),
     Print(Spanned<Expr>),
     VarDecl(Ident, Spanned<Expr>),
-    Block(Vec<Spanned<Stmt>>),
+    /// The statements in the block, and the amount of variables declared before the block. Use to
+    /// pop remaining declarations.
+    Block(Vec<Spanned<Stmt>>, usize),
     If {
         cond: Spanned<Expr>,
         then: Box<Spanned<Stmt>>,

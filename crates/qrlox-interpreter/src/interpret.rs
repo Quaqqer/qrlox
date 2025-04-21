@@ -1,6 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
-use qrlox_syntax::{ast::Span, Binop, Expr, Spanned, Stmt};
+use qrlox_compiler::{Binop, Expr, Ident, Stmt};
+use qrlox_syntax::{ast::Span, Spanned};
 
 use crate::{
     value::{Function, Native, Value},
@@ -27,7 +28,7 @@ where
     World: InterpreterWorld,
 {
     globals: HashMap<String, Value>,
-    environments: Vec<Vec<HashMap<String, Value>>>,
+    environments: Vec<Vec<Value>>,
     pub world: World,
 }
 
@@ -52,73 +53,47 @@ where
     }
 
     pub fn add_native(&mut self, native: Native) {
-        self.declare(native.name.clone(), Value::Native(Rc::new(native)));
+        self.declare(
+            &Ident::Global(Rc::new(native.name.to_string())),
+            Value::Native(Rc::new(native)),
+        );
     }
 
-    fn declare(&mut self, var: String, value: Value) {
-        if let Some(scope) = self.env_mut().last_mut() {
-            scope.insert(var, value);
+    fn declare(&mut self, ident: &Ident, value: Value) {
+        match ident {
+            Ident::Global(name) => {
+                self.globals.insert(name.to_string(), value);
+            }
+            Ident::Local(d) => {
+                debug_assert!(self.env().len() == *d);
+                self.env_mut().push(value);
+            }
+        }
+    }
+
+    fn lookup(&self, ident: &Ident) -> Option<Value> {
+        match ident {
+            Ident::Global(name) => self.globals.get(name.as_str()).cloned(),
+            Ident::Local(d) => self.env().get(*d).cloned(),
+        }
+    }
+
+    fn assign(&mut self, ident: &Ident, value: Value) -> bool {
+        let slot = match ident {
+            Ident::Global(name) => self.globals.get_mut(name.as_str()),
+            Ident::Local(d) => self.env_mut().get_mut(*d),
+        };
+
+        if let Some(slot) = slot {
+            *slot = value;
+            true
         } else {
-            self.globals.insert(var, value);
+            false
         }
-    }
-
-    fn lookup(&self, var: &str) -> Option<Value> {
-        let Self {
-            globals,
-            environments,
-            ..
-        } = self;
-
-        for scope in std::iter::once(globals)
-            .chain(environments.last().unwrap())
-            .rev()
-        {
-            if let Some(value) = scope.get(var) {
-                return Some(value.clone());
-            }
-        }
-
-        None
-    }
-
-    fn assign(&mut self, var: &str, value: Value) -> bool {
-        let Self {
-            globals,
-            environments,
-            ..
-        } = self;
-
-        for scope in std::iter::once(globals)
-            .chain(environments.last_mut().unwrap())
-            .rev()
-        {
-            if let Some(ref_) = scope.get_mut(var) {
-                *ref_ = value;
-                return true;
-            }
-        }
-
-        false
-    }
-
-    fn enter_scope(&mut self) {
-        self.env_mut().push(HashMap::new());
-    }
-
-    fn exit_scope(&mut self) {
-        self.env_mut().pop().expect("Popped too many scopes");
-    }
-
-    fn scoped<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
-        self.enter_scope();
-        let res = f(self);
-        self.exit_scope();
-        res
     }
 
     fn enter_env(&mut self) {
-        self.environments.push(vec![HashMap::new()]);
+        self.environments.push(Vec::new());
     }
 
     fn exit_env(&mut self) {
@@ -135,11 +110,11 @@ where
     }
 
     #[allow(unused)]
-    fn env(&self) -> &Vec<HashMap<String, Value>> {
+    fn env(&self) -> &Vec<Value> {
         self.environments.last().unwrap()
     }
 
-    fn env_mut(&mut self) -> &mut Vec<HashMap<String, Value>> {
+    fn env_mut(&mut self) -> &mut Vec<Value> {
         self.environments.last_mut().unwrap()
     }
 
@@ -166,19 +141,26 @@ where
                 })?)
             }
             Expr::Binary(lhs, op, rhs) => self.eval_binop(expr.s.clone(), lhs, op, rhs)?,
-            Expr::Var(var) => self
-                .lookup(var.v.as_str())
-                .ok_or(())
-                .or_else(|_| bail!(s, "No variable '{}' has been declared", var.v.as_str()))?,
+            Expr::Var(var) => self.lookup(var).ok_or(()).or_else(|_| {
+                if let Ident::Global(name) = var {
+                    bail!(s, "No global variable '{}' has been declared", name);
+                } else {
+                    bail!(s, "Unexpected error");
+                }
+            })?,
             Expr::Assign(var, expr) => {
                 let res = self.eval_expr(expr)?;
-                let assigned = self.assign(var.v.as_str(), res.clone());
+                let assigned = self.assign(var, res.clone());
                 if !assigned {
-                    bail!(
-                        s,
-                        "Could not assigned to '{}', it has not been declared.",
-                        var.v.as_str()
-                    );
+                    if let Ident::Global(name) = var {
+                        bail!(
+                            s,
+                            "Could not assign to '{}', it has not been declared.",
+                            name
+                        );
+                    } else {
+                        bail!(s, "Unexpected error");
+                    }
                 }
                 res
             }
@@ -193,17 +175,17 @@ where
                         (native.f)(&mut self.world, &s, arg_values).map_err(ControlFlow::Error)?
                     }
                     Value::Function(fun) => self.with_env(|ctx| -> Result<Value, ControlFlow> {
-                        if arg_values.len() != fun.params.len() {
+                        if arg_values.len() != fun.n_params {
                             bail!(
                                 s,
                                 "Expected {} arguments, got {}",
-                                fun.params.len(),
+                                fun.n_params,
                                 arg_values.len()
                             );
                         }
 
-                        for (arg, val) in fun.params.iter().zip(arg_values.into_iter()) {
-                            ctx.declare(arg.clone(), val);
+                        for (i, val) in arg_values.into_iter().enumerate() {
+                            ctx.declare(&Ident::Local(i), val);
                         }
 
                         for stmt in &fun.body {
@@ -230,7 +212,7 @@ where
                 }
             }
             Expr::Fun(params, body) => Value::Function(Rc::new(Function {
-                params: params.iter().map(|spanned| spanned.v.to_string()).collect(),
+                n_params: params.len(),
                 body: body.clone(),
             })),
         })
@@ -331,24 +313,33 @@ where
             }
             Stmt::VarDecl(var, expr) => {
                 let v = self.eval_expr(expr)?;
-                self.declare(var.v.to_string(), v);
+                self.declare(var, v);
             }
-            Stmt::Block(stmts) => {
-                self.scoped(|ctx| -> Result<_, ControlFlow> {
-                    for stmt in stmts {
-                        ctx.exec_stmt(stmt)?;
+            Stmt::Block(stmts, remaining_variables) => {
+                let mut res = Ok(());
+                for stmt in stmts {
+                    match self.exec_stmt(stmt) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            res = Err(e);
+                            break;
+                        }
                     }
+                }
 
-                    Ok(())
-                })?;
+                for _ in *remaining_variables..self.env().len() {
+                    self.env_mut().pop().unwrap();
+                }
+
+                res?;
             }
             Stmt::If { cond, then, else_ } => {
                 let cond = self.eval_expr(cond)?;
 
                 if cond.is_truthy() {
-                    self.scoped(|ctx| -> Result<_, ControlFlow> { ctx.exec_stmt(then) })?;
+                    self.exec_stmt(then)?;
                 } else if let Some(else_) = else_ {
-                    self.scoped(|ctx| -> Result<_, ControlFlow> { ctx.exec_stmt(else_) })?;
+                    self.exec_stmt(else_)?;
                 }
             }
             Stmt::While { cond, body } => {
@@ -398,11 +389,11 @@ where
             }
             Stmt::Break => return Err(ControlFlow::Break),
             Stmt::Continue => return Err(ControlFlow::Continue),
-            Stmt::FunDecl(name, params, body) => {
+            Stmt::FunDecl(ident, n_params, body) => {
                 self.declare(
-                    name.v.to_string(),
+                    ident,
                     Value::Function(Rc::new(Function {
-                        params: params.iter().map(|spanned| spanned.v.to_string()).collect(),
+                        n_params: *n_params,
                         body: body.clone(),
                     })),
                 );

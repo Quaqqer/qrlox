@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
-use qrlox_syntax::{ast::Span, Spanned, Stmt};
+use qrlox_compiler::Stmt;
+use qrlox_syntax::{ast::Span, Spanned};
 
 use crate::world::InterpreterWorld;
 
@@ -24,7 +25,7 @@ pub struct Native {
 
 #[derive(Debug)]
 pub struct Function {
-    pub params: Vec<String>,
+    pub n_params: usize,
     pub body: Vec<Spanned<Stmt>>,
 }
 

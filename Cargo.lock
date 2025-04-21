@@ -436,6 +436,7 @@ dependencies = [
  "ariadne",
  "clap",
  "platform-dirs",
+ "qrlox-compiler",
  "qrlox-interpreter",
  "qrlox-syntax",
  "rustyline",
@@ -456,6 +457,7 @@ dependencies = [
  "ariadne",
  "indoc",
  "pretty_assertions",
+ "qrlox-compiler",
  "qrlox-macros",
  "qrlox-syntax",
 ]

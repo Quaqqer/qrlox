@@ -3,6 +3,7 @@ mod repl;
 mod world;
 
 use clap::Parser;
+use qrlox_compiler::resolve_program;
 use qrlox_interpreter::Interpreter;
 use world::CliWorld;
 
@@ -34,8 +35,16 @@ pub fn main() {
             }
         };
 
+        let resolved_ast = match resolve_program(&ast, &ariadne_config) {
+            Ok(v) => v,
+            Err(err) => {
+                err.eprint(ariadne::Source::from(&content)).unwrap();
+                std::process::exit(1);
+            }
+        };
+
         let mut interpreter = Interpreter::new(CliWorld);
-        let res = interpreter.exec_program(&ast, &ariadne_config);
+        let res = interpreter.exec_program(&resolved_ast, &ariadne_config);
 
         match res {
             Ok(()) => {}

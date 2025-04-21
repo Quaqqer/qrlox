@@ -1,3 +1,4 @@
+use qrlox_compiler::{resolve_expr, resolve_program};
 use qrlox_interpreter::Interpreter;
 use qrlox_syntax::ProgramOrExpr;
 
@@ -39,11 +40,13 @@ pub fn repl(ariadne_config: &ariadne::Config) {
                 };
 
                 let res = match ast {
-                    ProgramOrExpr::Program(stmts) => interpreter
-                        .exec_program(&stmts, ariadne_config)
+                    ProgramOrExpr::Program(stmts) => resolve_program(&stmts, ariadne_config)
+                        .and_then(|resolved| interpreter.exec_program(&resolved, ariadne_config))
                         .map(|_| None),
                     ProgramOrExpr::Expr(expr) => {
-                        interpreter.eval_expr(&expr, ariadne_config).map(Some)
+                        resolve_expr(&expr, ariadne_config).and_then(|resolved| {
+                            interpreter.eval_expr(&resolved, ariadne_config).map(Some)
+                        })
                     }
                 };
 
