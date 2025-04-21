@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ariadne.workspace = true
 clap.workspace = true
+gc = { version = "0.5.0", features = ["derive"] }
 platform-dirs = "0.3.0"
 qrlox-compiler = { version = "0.1.0", path = "../qrlox-compiler" }
 qrlox-interpreter = { version = "0.1.0", path = "../qrlox-interpreter" }

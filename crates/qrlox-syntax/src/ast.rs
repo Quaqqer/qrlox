@@ -131,6 +131,8 @@ pub enum Expr {
     Assign(Ident, Box<Spanned<Expr>>),
     Var(Ident),
     Call(Box<Spanned<Expr>>, Vec<Spanned<Expr>>),
+    Get(Box<Spanned<Expr>>, Ident),
+    Set(Box<Spanned<Expr>>, Ident, Box<Spanned<Expr>>),
     Fun(Vec<Ident>, Vec<Spanned<Stmt>>),
 }
 

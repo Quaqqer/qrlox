@@ -28,7 +28,7 @@ where
 {
     let ty_name = v.type_().name();
 
-    Cast::<T>::cast(v).ok_or_else(|| {
+    Cast::<T>::cast(&v).ok_or_else(|| {
         err!(
             span,
             "Could not cast argument {} of type {} to {}",

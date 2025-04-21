@@ -1,5 +1,6 @@
-use std::rc::Rc;
+use std::collections::HashMap;
 
+use gc::{Finalize, Gc, GcCell, Trace};
 use qrlox_compiler::Stmt;
 use qrlox_syntax::{ast::Span, Spanned};
 
@@ -7,44 +8,48 @@ use crate::world::InterpreterWorld;
 
 use super::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Trace, Finalize)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
-    Native(Rc<Native>),
-    Function(Rc<Function>),
-    Class(Rc<Class>),
-    Instance(Instance),
+    Native(Gc<Native>),
+    Function(Gc<Function>),
+    Class(Gc<Class>),
+    Instance(Gc<GcCell<Instance>>),
 }
 
+#[derive(Trace, Finalize)]
 pub struct Native {
     pub name: String,
+    #[unsafe_ignore_trace]
     #[allow(clippy::type_complexity)]
     pub f: Box<dyn Fn(&mut dyn InterpreterWorld, &Span, Vec<Value>) -> Result<Value, Error>>,
-}
-
-#[derive(Debug)]
-pub struct Function {
-    pub n_params: usize,
-    pub body: Vec<Spanned<Stmt>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Class {
-    pub class_name: Rc<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Instance {
-    pub class: Rc<Class>,
 }
 
 impl std::fmt::Debug for Native {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}()", self.name)
     }
+}
+
+#[derive(Debug, Trace, Finalize)]
+pub struct Function {
+    pub n_params: usize,
+    #[unsafe_ignore_trace]
+    pub body: Vec<Spanned<Stmt>>,
+}
+
+#[derive(Debug, Clone, Trace, Finalize)]
+pub struct Class {
+    pub class_name: Gc<String>,
+}
+
+#[derive(Debug, Clone, Trace, Finalize)]
+pub struct Instance {
+    pub class: Gc<Class>,
+    pub fields: HashMap<String, Value>,
 }
 
 impl Value {
@@ -73,7 +78,9 @@ impl Value {
             Value::Native(_) => "function".to_string(),
             Value::Function(_) => "function".to_string(),
             Value::Class(object) => object.class_name.to_string(),
-            Value::Instance(instance) => format!("{} instance", instance.class.class_name),
+            Value::Instance(instance) => {
+                format!("{} instance", instance.borrow().class.class_name,)
+            }
         }
     }
 
@@ -89,7 +96,7 @@ impl PartialEq for Value {
             (Value::Boolean(lhs), Value::Boolean(rhs)) => lhs == rhs,
             (Value::Number(lhs), Value::Number(rhs)) => lhs == rhs,
             (Value::String(lhs), Value::String(rhs)) => lhs == rhs,
-            (Value::Native(lhs), Value::Native(rhs)) => Rc::ptr_eq(lhs, rhs),
+            (Value::Native(lhs), Value::Native(rhs)) => Gc::ptr_eq(lhs, rhs),
             _ => false,
         }
     }

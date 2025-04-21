@@ -19,9 +19,9 @@ pub fn expr_parser<'a>(
     let true_ = just(Token::True).map_with_span(|_, s| spanned(Expr::Boolean(true), s));
     let false_ = just(Token::False).map_with_span(|_, s| spanned(Expr::Boolean(false), s));
     let nil = just(Token::Nil).map_with_span(|_, s| spanned(Expr::Nil, s));
-    let grouping = just(Token::LParen)
-        .ignore_then(expr_parser.clone())
-        .then_ignore(just(Token::RParen));
+    let grouping = expr_parser
+        .clone()
+        .delimited_by(just(Token::LParen), just(Token::RParen));
     let fun = just(Token::Fun)
         .ignore_then(just(Token::LParen))
         .ignore_then(ident().separated_by(just(Token::Comma)))
@@ -42,17 +42,29 @@ pub fn expr_parser<'a>(
     .or(grouping)
     .or(fun);
 
+    #[derive(Clone)]
+    enum CallFoldable {
+        Call { args: Vec<Spanned<Expr>> },
+        Get { field: Spanned<Rc<String>> },
+    }
+
     let call = primary
-        .then(
-            just(Token::LParen)
+        .then({
+            let call = just(Token::LParen)
                 .ignore_then(expr_parser.clone().separated_by(just(Token::Comma)))
                 .then_ignore(just(Token::RParen))
-                .map_with_span(spanned)
-                .repeated(),
-        )
-        .foldl(|lhs, args| {
-            let s = lhs.s.join(args.s);
-            spanned(Expr::Call(Box::new(lhs), args.v), s)
+                .map(|args| CallFoldable::Call { args });
+            let get = just(Token::Dot)
+                .ignore_then(ident())
+                .map(|field| CallFoldable::Get { field });
+            call.or(get).map_with_span(spanned).repeated()
+        })
+        .foldl(|lhs, foldable| {
+            let s = lhs.s.join(foldable.s);
+            match foldable.v {
+                CallFoldable::Call { args } => spanned(Expr::Call(Box::new(lhs), args), s),
+                CallFoldable::Get { field } => spanned(Expr::Get(Box::new(lhs), field), s),
+            }
         });
 
     let unary = recursive(|unary| {
@@ -62,7 +74,7 @@ pub fn expr_parser<'a>(
         let neg = just(Token::Minus)
             .ignore_then(unary.clone())
             .map_with_span(|e, s| spanned(Expr::Neg(Box::new(e)), s));
-        not.or(neg).or(call)
+        not.or(neg).or(call.clone())
     });
 
     let factor = unary
@@ -144,16 +156,25 @@ pub fn expr_parser<'a>(
             spanned(Expr::Binary(Box::new(lhs), op, Box::new(rhs)), s)
         });
 
-    let assignment = ident()
+    let var_assignment = ident()
         .then_ignore(just(Token::Eq))
         .then(or.clone())
-        .map_with_span(|(ident, expr), span| spanned(Expr::Assign(ident, Box::new(expr)), span))
-        .or(or);
+        .map_with_span(|(ident, expr), s| spanned(Expr::Assign(ident, Box::new(expr)), s));
+    let field_assignment = call
+        .clone()
+        .then_ignore(just(Token::Eq))
+        .then(or.clone())
+        .try_map(|(lhs, rhs), s| match lhs.v {
+            Expr::Get(lhs, field) => Ok(Expr::Set(lhs, field, Box::new(rhs))),
+            _ => Err(Simple::custom(s, "Cannot assign to function calls.")),
+        })
+        .map_with_span(spanned);
+    let assignment = var_assignment.or(field_assignment).or(or);
 
     assignment
 }
 
-fn ident<'a>() -> impl Parser<Token<'a>, Spanned<Rc<String>>, Error = Error<'a>> {
+fn ident<'a>() -> impl Parser<Token<'a>, Spanned<Rc<String>>, Error = Error<'a>> + Clone {
     select! {
         Token::Identifier(ident) => ident,
     }

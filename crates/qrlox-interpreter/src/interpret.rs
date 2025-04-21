@@ -1,5 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
+use gc::{Gc, GcCell};
 use qrlox_compiler::{Binop, ClassDecl, Expr, FunDecl, Ident, Stmt};
 use qrlox_syntax::{ast::Span, Spanned};
 
@@ -54,8 +55,8 @@ where
 
     pub fn add_native(&mut self, native: Native) {
         self.declare(
-            &Ident::Global(Rc::new(native.name.to_string())),
-            Value::Native(Rc::new(native)),
+            &Ident::Global(std::rc::Rc::new(native.name.to_string())),
+            Value::Native(Gc::new(native)),
         );
     }
 
@@ -172,7 +173,7 @@ where
                 for arg in args {
                     arg_values.push(self.eval_expr(arg)?);
                 }
-                match callable_v {
+                match &callable_v {
                     Value::Native(native) => {
                         (native.f)(&mut self.world, &s, arg_values).map_err(ControlFlow::Error)?
                     }
@@ -217,9 +218,10 @@ where
                             );
                         }
 
-                        Value::Instance(Instance {
+                        Value::Instance(Gc::new(GcCell::new(Instance {
                             class: class.clone(),
-                        })
+                            fields: HashMap::new(),
+                        })))
                     }
                     _ => bail!(
                         callable.s,
@@ -228,7 +230,42 @@ where
                     ),
                 }
             }
-            Expr::Fun(params, body) => Value::Function(Rc::new(Function {
+            Expr::Get(lhs, field) => {
+                let mut lhs_value = self.eval_expr(lhs)?;
+                match &mut lhs_value {
+                    Value::Instance(instance) => instance
+                        .borrow()
+                        .fields
+                        .get(field.v.as_str())
+                        .ok_or(())
+                        .or_else(|_| bail!(s, "Instance has no property '{}'", field.v.as_str()))?
+                        .clone(),
+                    _ => bail!(
+                        s,
+                        "Values of type '{}' don't have fields.",
+                        lhs_value.type_().name()
+                    ),
+                }
+            }
+            Expr::Set(lhs, field, value) => {
+                let mut lhs_value = self.eval_expr(lhs)?;
+                match &mut lhs_value {
+                    Value::Instance(instance) => {
+                        let v = self.eval_expr(value)?;
+                        instance
+                            .borrow_mut()
+                            .fields
+                            .insert(field.v.to_string(), v.clone());
+                        v
+                    }
+                    _ => bail!(
+                        s,
+                        "Values of type '{}' don't have fields",
+                        lhs_value.type_().name()
+                    ),
+                }
+            }
+            Expr::Fun(params, body) => Value::Function(Gc::new(Function {
                 n_params: params.len(),
                 body: body.clone(),
             })),
@@ -323,8 +360,8 @@ where
             Stmt::Print(expr) => {
                 let v = self.eval_expr(expr)?;
 
-                if let Value::String(s) = v {
-                    self.world.println(&s);
+                if let Value::String(s) = &v {
+                    self.world.println(s);
                 } else {
                     self.world.println(&v.repr());
                 }
@@ -414,7 +451,7 @@ where
             }) => {
                 self.declare(
                     name,
-                    Value::Function(Rc::new(Function {
+                    Value::Function(Gc::new(Function {
                         n_params: *n_params,
                         body: body.clone(),
                     })),
@@ -426,8 +463,8 @@ where
                 functions,
             }) => self.declare(
                 ident,
-                Value::Class(Rc::new(Class {
-                    class_name: class_name.clone(),
+                Value::Class(Gc::new(Class {
+                    class_name: Gc::new(class_name.to_string()),
                 })),
             ),
             Stmt::Return(expr) => {

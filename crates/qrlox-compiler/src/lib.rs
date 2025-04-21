@@ -233,6 +233,14 @@ impl Resolver {
                 }
                 args
             }),
+            ast::Expr::Get(lhs, field) => {
+                Expr::Get(Box::new(self.resolve_expr(lhs)?), field.clone())
+            }
+            ast::Expr::Set(lhs, field, value) => Expr::Set(
+                Box::new(self.resolve_expr(lhs)?),
+                field.clone(),
+                Box::new(self.resolve_expr(value)?),
+            ),
             ast::Expr::Fun(ast_params, ast_stmts) => self.in_closure(|resolver| {
                 let mut params = Vec::new();
                 for param in ast_params {
@@ -352,6 +360,8 @@ pub enum Expr {
     Assign(Ident, Box<Spanned<Expr>>),
     Var(Ident),
     Call(Box<Spanned<Expr>>, Vec<Spanned<Expr>>),
+    Get(Box<Spanned<Expr>>, Spanned<Rc<String>>),
+    Set(Box<Spanned<Expr>>, Spanned<Rc<String>>, Box<Spanned<Expr>>),
     Fun(Vec<Ident>, Vec<Spanned<Stmt>>),
 }
 
