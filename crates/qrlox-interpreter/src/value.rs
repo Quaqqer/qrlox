@@ -15,7 +15,8 @@ pub enum Value {
     String(String),
     Native(Rc<Native>),
     Function(Rc<Function>),
-    Object(Object),
+    Class(Rc<Class>),
+    Instance(Instance),
 }
 
 pub struct Native {
@@ -31,8 +32,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone)]
-pub struct Object {
+pub struct Class {
     pub class_name: Rc<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Instance {
+    pub class: Rc<Class>,
 }
 
 impl std::fmt::Debug for Native {
@@ -50,7 +56,8 @@ impl Value {
             Value::String(_) => ValueType::String,
             Value::Native(_) => ValueType::Function,
             Value::Function(_) => ValueType::Function,
-            Value::Object(_) => ValueType::Object,
+            Value::Class(_) => ValueType::Class,
+            Value::Instance(_) => ValueType::Instance,
         }
     }
 
@@ -65,7 +72,8 @@ impl Value {
             Value::String(s) => "\"".to_string() + s + "\"",
             Value::Native(_) => "function".to_string(),
             Value::Function(_) => "function".to_string(),
-            Value::Object(object) => object.class_name.to_string(),
+            Value::Class(object) => object.class_name.to_string(),
+            Value::Instance(instance) => format!("{} instance", instance.class.class_name),
         }
     }
 
@@ -115,7 +123,8 @@ pub enum ValueType {
     Number,
     String,
     Function,
-    Object,
+    Class,
+    Instance,
 }
 
 impl ValueType {
@@ -126,7 +135,8 @@ impl ValueType {
             ValueType::Number => "number",
             ValueType::String => "string",
             ValueType::Function => "function",
-            ValueType::Object => "object",
+            ValueType::Class => "class",
+            ValueType::Instance => "instance",
         }
     }
 }

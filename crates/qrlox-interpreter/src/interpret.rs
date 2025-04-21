@@ -4,7 +4,7 @@ use qrlox_compiler::{Binop, ClassDecl, Expr, FunDecl, Ident, Stmt};
 use qrlox_syntax::{ast::Span, Spanned};
 
 use crate::{
-    value::{Function, Native, Object, Value},
+    value::{Class, Function, Instance, Native, Value},
     world::InterpreterWorld,
     Error,
 };
@@ -206,6 +206,21 @@ where
                         }
                         Ok(Value::Nil)
                     })?,
+                    Value::Class(class) => {
+                        let expected_arguments = 0;
+                        if arg_values.len() != expected_arguments {
+                            bail!(
+                                callable.s,
+                                "Constructor for class '{}' expected {} arguments",
+                                class.class_name,
+                                expected_arguments
+                            );
+                        }
+
+                        Value::Instance(Instance {
+                            class: class.clone(),
+                        })
+                    }
                     _ => bail!(
                         callable.s,
                         "Values of type {} cannot be called",
@@ -411,9 +426,9 @@ where
                 functions,
             }) => self.declare(
                 ident,
-                Value::Object(Object {
+                Value::Class(Rc::new(Class {
                     class_name: class_name.clone(),
-                }),
+                })),
             ),
             Stmt::Return(expr) => {
                 if self.environments.len() == 1 {
