@@ -27,7 +27,7 @@ impl Span {
     }
 }
 
-impl chumsky::Span for Span {
+impl chumsky::span::Span for Span {
     type Context = ();
 
     type Offset = usize;

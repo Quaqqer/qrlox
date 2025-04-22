@@ -14,7 +14,7 @@ default-members = ["./crates/qrlox-cli"]
 
 [workspace.dependencies]
 ariadne = "0.5.0"
-chumsky = "0.9.3"
+chumsky = "0.10.1"
 clap = { version = "4.5.23", features = ["derive"] }
 logos = "0.15.0"
 syn = { version = "2.0", features = ["full"] }

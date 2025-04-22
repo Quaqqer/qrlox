@@ -2,32 +2,38 @@ pub mod ast;
 mod parse;
 mod token;
 
+use ast::Span;
 pub use ast::{spanned, Binop, Expr, Spanned, Stmt};
 
-use chumsky::{error::Simple, Parser};
+use chumsky::{
+    error::Rich,
+    input::{Input as _, Stream},
+    Parser,
+};
 use logos::Logos as _;
 use token::Token;
 
 #[allow(clippy::type_complexity)]
 fn token_stream<'a>(
     source: &'a str,
-) -> chumsky::Stream<
-    'a,
+) -> chumsky::input::MappedInput<
     Token<'a>,
-    ast::Span,
-    std::iter::Map<
-        logos::SpannedIter<'a, Token<'a>>,
-        impl FnMut((Result<Token<'a>, ()>, std::ops::Range<usize>)) -> (Token<'a>, ast::Span),
+    Span,
+    Stream<
+        std::iter::Map<
+            logos::SpannedIter<'a, Token<'a>>,
+            impl FnMut((Result<Token<'a>, ()>, std::ops::Range<usize>)) -> (Token<'a>, Span),
+        >,
     >,
+    impl Fn((Token<'a>, Span)) -> (Token<'a>, Span),
 > {
-    let lexer_stream = Token::lexer(source)
+    let token_iter = Token::lexer(source)
         .spanned()
         .map(|(tok, range)| match tok {
             Ok(tok) => (tok, ast::Span::new(range)),
             Err(()) => (Token::Error, ast::Span::new(range)),
         });
-    let n_chars = source.len();
-    chumsky::Stream::from_iter(ast::Span::new(n_chars..n_chars), lexer_stream)
+    Stream::from_iter(token_iter).map(Span::new(0..source.len()), |(t, s)| (t, s))
 }
 
 pub fn parse_expr_or_program<'a, 'b>(
@@ -35,7 +41,9 @@ pub fn parse_expr_or_program<'a, 'b>(
     ariadne_config: &'a ariadne::Config,
 ) -> (Option<ProgramOrExpr>, Vec<ariadne::Report<'b>>) {
     let stream = token_stream(source);
-    let (ast, errors) = parse::expr_or_program_parser().parse_recovery(stream);
+    let (ast, errors) = parse::expr_or_program_parser()
+        .parse(stream)
+        .into_output_errors();
     let errors = errors
         .iter()
         .map(|err| error_report(err, ariadne_config))
@@ -48,7 +56,7 @@ pub fn parse_program<'a, 'b>(
     ariadne_config: &'a ariadne::Config,
 ) -> (Option<Vec<Spanned<Stmt>>>, Vec<ariadne::Report<'b>>) {
     let stream = token_stream(source);
-    let (ast, errors) = parse::program_parser().parse_recovery(stream);
+    let (ast, errors) = parse::program_parser().parse(stream).into_output_errors();
     let errors = errors
         .iter()
         .map(|err| error_report(err, ariadne_config))
@@ -62,7 +70,7 @@ pub enum ProgramOrExpr {
 }
 
 pub fn error_report<'a>(
-    err: &Simple<Token<'_>, ast::Span>,
+    err: &Rich<Token<'_>, ast::Span>,
     ariadne_config: &ariadne::Config,
 ) -> ariadne::Report<'a> {
     ariadne::Report::build(ariadne::ReportKind::Error, err.span().range().clone())
